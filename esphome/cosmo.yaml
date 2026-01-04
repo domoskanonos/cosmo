@@ -7,33 +7,101 @@ esphome:
   friendly_name: ${friendly_name}
   min_version: 2024.6.0
   name_add_mac_suffix: true
-  project:
-    name: esphome.launch
-    version: "1.0"
 
 esp32:
-  board: esp32-s3-box-3
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
   framework:
     type: esp-idf
 
-# Enable logging
-logger:
-
-# Enable Home Assistant API
-api:
-
-# Enable OTA (Over The Air updates)
-ota:
-  - platform: esphome
-
-# WiFi configuration
+# WLAN & API
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
-
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "Cosmo Fallback Hotspot"
-    password: "password"
 
-captive_portal:
+api:
+  # Passwort optional, für Sicherheit in Python-Skript nutzen
+  password: ""
+
+logger:
+ota:
+  - platform: esphome
+
+# --- AUDIO HARDWARE ---
+i2s_audio:
+  - id: i2s_bus
+    i2s_lrclk_pin: GPIO45
+    i2s_bclk_pin: GPIO7
+
+microphone:
+  - platform: i2s_audio
+    id: cosmo_mic
+    i2s_audio_id: i2s_bus
+    adc_type: external
+    pdm: false
+    i2s_din_pin: GPIO8  # Geändert von data_pin zu i2s_din_pin
+
+speaker:
+  - platform: i2s_audio
+    id: cosmo_speaker
+    i2s_audio_id: i2s_bus
+    dac_type: external   # Dies hat gefehlt
+    i2s_dout_pin: GPIO15 # Der Pin für den Sound-Ausgang
+
+# --- DISPLAY & SCHRIFT ---
+spi:
+  clk_pin: GPIO40
+  mosi_pin: GPIO41
+
+# --- SCHRIFTEN ---
+font:
+  - file: "gfonts://Roboto"
+    id: font_normal
+    size: 20
+  - file: "gfonts://Roboto"
+    id: font_small
+    size: 14
+
+# --- DISPLAY ---
+display:
+  - platform: st7789v
+    id: cosmo_display
+    model: custom
+    height: 240
+    width: 320
+    offset_height: 0    # Diese beiden Offsets
+    offset_width: 0     # haben noch gefehlt
+    cs_pin: GPIO5
+    dc_pin: GPIO4
+    reset_pin: GPIO48
+    backlight_pin: GPIO47
+    rotation: 90
+    lambda: |-
+      it.fill(Color::BLACK);
+      // Augen zeichnen (Gelb)
+      it.filled_circle(80, 80, 30, Color(0xFFFF00));
+      it.filled_circle(240, 80, 30, Color(0xFFFF00));
+      
+      // Texte anzeigen
+      it.printf(160, 160, id(font_small), Color(0x888888), TextAlign::CENTER, "%s", id(user_text).state.c_str());
+      it.printf(160, 200, id(font_normal), Color(0xFFFFFF), TextAlign::CENTER, "%s", id(bot_text).state.c_str());
+
+      
+# --- SENSOREN FÜR TEXT-ÜBERTRAGUNG ---
+text_sensor:
+  - platform: template
+    name: "User Text"
+    id: user_text
+    update_interval: never
+  - platform: template
+    name: "Bot Response"
+    id: bot_text
+    update_interval: never
+
+# --- VOICE ASSISTANT ---
+voice_assistant:
+  microphone: cosmo_mic
+  speaker: cosmo_speaker
+  use_wake_word: true
