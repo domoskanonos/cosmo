@@ -1,0 +1,15 @@
+[project]
+name = "cosmo"
+version = "0.1.0"
+description = "Offline AI Assistant based on Xiaozhi (ESP32-S3-BOX-3) hardware"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "wyoming",
+    "aiohttp",
+    "esphome",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
