@@ -213,7 +213,7 @@ micro_wake_word:
   microphone: cosmo_mic
   stop_after_detection: true  # WICHTIG: Stoppt automatisch und gibt RAM frei!
   on_wake_word_detected:
-    - logger.log: "🎤 WAKE WORD ERKANNT! (micro_wake_word stoppt automatisch)"
+    - logger.log: "🎙️ WAKE WORD ERKANNT! Starte Voice Assistant..."
     - binary_sensor.template.publish:
         id: wake_word_detected
         state: ON
@@ -221,6 +221,29 @@ micro_wake_word:
     - binary_sensor.template.publish:
         id: wake_word_detected
         state: OFF
+    # Voice Assistant starten - streamt Audio an Python
+    - voice_assistant.start:
+        silence_detection: false  # Python macht VAD
   models:
     - model: okay_nabu
       probability_cutoff: 0.85
+
+# Voice Assistant - streamt Audio an Python via API
+voice_assistant:
+  microphone: cosmo_mic
+  media_player: cosmo_media_player
+  use_wake_word: false  # Wake Word läuft separat über micro_wake_word
+  on_listening:
+    - logger.log: "🎤 Voice Assistant: Höre zu..."
+  on_stt_end:
+    - logger.log:
+        format: "📝 Erkannt: %s"
+        args: ['x.c_str()']
+  on_end:
+    - logger.log: "✅ Voice Assistant fertig"
+    - micro_wake_word.start:  # Wake Word wieder starten
+  on_error:
+    - logger.log:
+        format: "❌ Voice Assistant Fehler: %s - %s"
+        args: ['code.c_str()', 'message.c_str()']
+    - micro_wake_word.start:

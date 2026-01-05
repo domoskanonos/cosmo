@@ -1,0 +1,72 @@
+# Home Assistant Voice Assistant Stack
+# Funktioniert mit Docker Compose und Podman Compose
+#
+# Starten: docker compose up -d
+# Oder:    podman-compose up -d
+
+services:
+  # ============== HOME ASSISTANT ==============
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    privileged: true
+    network_mode: host  # Für ESPHome Discovery
+    volumes:
+      - ./homeassistant/config:/config
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - TZ=Europe/Berlin
+
+  # ============== WHISPER (Speech-to-Text) ==============
+  whisper:
+    image: rhasspy/wyoming-whisper:latest
+    container_name: whisper
+    restart: unless-stopped
+    ports:
+      - "10300:10300"
+    volumes:
+      - ./whisper/data:/data
+    command: >
+      --model base
+      --language de
+      --data-dir /data
+      --download-dir /data
+    environment:
+      - TZ=Europe/Berlin
+
+  # ============== PIPER (Text-to-Speech) ==============
+  piper:
+    image: rhasspy/wyoming-piper:latest
+    container_name: piper
+    restart: unless-stopped
+    ports:
+      - "10200:10200"
+    volumes:
+      - ./piper/data:/data
+    command: >
+      --voice de_DE-thorsten-high
+      --data-dir /data
+      --download-dir /data
+    environment:
+      - TZ=Europe/Berlin
+
+  # ============== OLLAMA (Local LLM) ==============
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama/data:/root/.ollama
+    environment:
+      - TZ=Europe/Berlin
+    # GPU Support (optional, auskommentieren wenn keine GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
