@@ -188,9 +188,11 @@ micro_wake_word:
     - binary_sensor.template.publish:
         id: wake_word_detected
         state: OFF
+    - delay: 1s
+    - micro_wake_word.start:  # Wake Word automatisch neu starten
   models:
     - model: okay_nabu
-      probability_cutoff: 0.5
+      probability_cutoff: 0.85  # Höher = weniger False Positives
 
 # Debug: Regelmäßig Status loggen
 interval:
