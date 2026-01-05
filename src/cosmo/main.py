@@ -157,7 +157,7 @@ async def main():
             async def va_handle_stop(abort: bool):
                 print(f"🛑 Voice Assistant Stop (abort={abort})")
             
-            stop_callback = await cli.subscribe_voice_assistant(
+            stop_callback = cli.subscribe_voice_assistant(
                 handle_start=va_handle_start,
                 handle_stop=va_handle_stop,
             )
