@@ -120,6 +120,11 @@ voice_assistant:
     - delay: 500ms
     - micro_wake_word.start:
 
+# RTTTL Buzzer für Test-Töne
+rtttl:
+  id: rtttl_buzzer
+  speaker: cosmo_speaker
+
 # PA (Power Amplifier) einschalten
 switch:
   - platform: gpio
@@ -127,6 +132,16 @@ switch:
     id: pa_enable
     pin: GPIO46
     restore_mode: ALWAYS_ON
+
+# Binary Sensor um Wake Word Status an Python zu senden
+binary_sensor:
+  - platform: template
+    name: "Wake Word Detected"
+    id: wake_word_detected
+    on_press:
+      then:
+        - logger.log: "🔔 Spiele Test-Ton..."
+        - rtttl.play: "beep:d=4,o=5,b=100:c6"
 
 # --- DISPLAY & SCHRIFT (SP-ESP32-S3-1.28-BOX) ---
 # SPI Bus Konfiguration für das Display
