@@ -121,10 +121,11 @@ async def send_tts_to_speaker(text: str):
     print(f"🔈 Sende Audio URL an Media Player: {audio_url}")
     
     try:
-        # Media Player Befehl senden (ist synchron, kein await!)
+        # Media Player Befehl senden - announcement=True weil nur announcement_pipeline konfiguriert
         cli.media_player_command(
             key=media_player_key,
             media_url=audio_url,
+            announcement=True,
         )
         print("✅ Media Player gestartet!")
     except Exception as e:

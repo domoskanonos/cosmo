@@ -103,6 +103,7 @@ speaker:
     sample_rate: 16000
     channel: left
     audio_dac: es8311_codec
+    buffer_duration: 100ms  # Kleiner Buffer wegen wenig RAM
 
 # Media Player mit Speaker - kann URLs streamen!
 media_player:
@@ -114,6 +115,14 @@ media_player:
       format: WAV
       sample_rate: 16000
       num_channels: 1
+    buffer_size: 32000  # Kleiner Buffer (32KB statt 1MB) wegen wenig RAM
+    codec_support_enabled: false  # Nur WAV, kein MP3/FLAC - spart RAM
+    on_announcement:
+      - logger.log: "📢 Starte Announcement - micro_wake_word ist gestoppt"
+    on_idle:
+      - logger.log: "✅ Audio fertig - starte micro_wake_word neu"
+      - delay: 500ms
+      - micro_wake_word.start:
 
 # API - Services werden vom Media Player automatisch bereitgestellt
 api:
@@ -139,7 +148,10 @@ binary_sensor:
     id: wake_word_detected
     on_press:
       then:
-        - logger.log: "🔔 Spiele Test-Ton..."
+        - logger.log: "🔔 Wake Word - Stoppe Erkennung für Audio..."
+        # Wichtig: micro_wake_word stoppen um RAM freizugeben!
+        - micro_wake_word.stop:
+        - delay: 100ms  # Kurz warten bis RAM frei ist
         - rtttl.play: "beep:d=4,o=5,b=100:c6"
 
 # --- DISPLAY & SCHRIFT (SP-ESP32-S3-1.28-BOX) ---
@@ -210,8 +222,8 @@ micro_wake_word:
     - binary_sensor.template.publish:
         id: wake_word_detected
         state: OFF
-    - delay: 1s
-    - micro_wake_word.start:  # Wake Word automatisch neu starten
+    # KEIN automatisches Neustarten hier! 
+    # Das macht der media_player on_idle nachdem Audio fertig ist
   models:
     - model: okay_nabu
       probability_cutoff: 0.85  # Höher = weniger False Positives
