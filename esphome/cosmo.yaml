@@ -35,7 +35,7 @@ esp32:
   board: esp32-s3-devkitc-1 # Das verwendete Entwicklerboard (hier ein ESP32-S3)
   variant: esp32s3 # Die Chip-Variante (S3 ist leistungsstärker, gut für AI/Audio)
   framework:
-    type: esp-idf # Verwendet das offizielle Espressif IoT Development Framework (statt Arduino)
+    type: esp-idf # ESP-IDF Framework für micro_wake_word Support
 
 # WLAN Konfiguration
 wifi:
@@ -105,6 +105,20 @@ speaker:
     sample_rate: 16000
     channel: left
     audio_dac: es8311_codec
+
+# Voice Assistant für Python TTS Streaming
+voice_assistant:
+  id: cosmo_voice
+  microphone: cosmo_mic
+  speaker: cosmo_speaker
+  use_wake_word: false
+  on_tts_stream_start:
+    - logger.log: "🔊 TTS Stream startet..."
+    - micro_wake_word.stop:
+  on_tts_stream_end:
+    - logger.log: "🔊 TTS Stream beendet"
+    - delay: 500ms
+    - micro_wake_word.start:
 
 # PA (Power Amplifier) einschalten
 switch:
