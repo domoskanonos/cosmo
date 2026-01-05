@@ -199,12 +199,6 @@ text_sensor:
     lambda: |-
           return {"Bereit"};
     update_interval: never # Wird nur manuell aktualisiert
-
-# Binary Sensor um Wake Word Status an Python zu senden
-binary_sensor:
-  - platform: template
-    name: "Wake Word Detected"
-    id: wake_word_detected
     
 micro_wake_word:
   microphone: cosmo_mic
