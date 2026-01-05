@@ -14,13 +14,11 @@ esphome:
   min_version: 2024.6.0 # Mindestversion von ESPHome, die zum Kompilieren benötigt wird
   name_add_mac_suffix: true # Fügt die letzten Stellen der MAC-Adresse an den Namen an, um Konflikte zu vermeiden
   on_boot:
-    priority: -100 # Niedrige Priorität, damit alles andere zuerst initialisiert wird
+    priority: -100 # Niedrige Priorität = alles andere ist bereits initialisiert
     then:
-      - delay: 2s # Kurz warten bis alles bereit ist
-      - output.turn_on: backlight # Display Backlight einschalten
-      - delay: 3s
-      - micro_wake_word.start: # Wake Word Erkennung starten
-      - logger.log: "Cosmo ist bereit und hört auf das Wake Word!"
+      - output.turn_on: backlight
+      - micro_wake_word.start:
+      - logger.log: "✅ Cosmo ist bereit und hört auf das Wake Word!"
 
 # Backlight Output (active low auf diesem Board)
 output:
@@ -236,8 +234,9 @@ micro_wake_word:
 
 # Debug: Regelmäßig Status loggen
 interval:
-  - interval: 10s
+  - interval: 30s
     then:
       - logger.log: 
-          format: "🔊 Mikrofon Status: micro_wake_word läuft"
+          format: "📊 Free Heap: %d bytes"
+          args: ['id(free_heap).state']
           level: INFO
