@@ -37,6 +37,10 @@ esp32:
   framework:
     type: esp-idf # ESP-IDF Framework für micro_wake_word Support
 
+# Netzwerk - High-Performance DEAKTIVIEREN wegen fehlendem PSRAM!
+network:
+  enable_high_performance: false
+
 # WLAN Konfiguration
 wifi:
   ssid: !secret wifi_ssid # WLAN-Name aus secrets.yaml
@@ -103,7 +107,8 @@ speaker:
     sample_rate: 16000
     channel: left
     audio_dac: es8311_codec
-    buffer_duration: 100ms  # Kleiner Buffer wegen wenig RAM
+    buffer_duration: 50ms  # Minimaler Buffer - spart RAM!
+    timeout: 100ms  # Schnelleres Freigeben des I2S-Bus
 
 # Media Player mit Speaker - kann URLs streamen!
 media_player:
@@ -115,23 +120,27 @@ media_player:
       format: WAV
       sample_rate: 16000
       num_channels: 1
-    buffer_size: 32000  # Kleiner Buffer (32KB statt 1MB) wegen wenig RAM
+    buffer_size: 4000  # MINIMUM laut Doku (4KB)! Spart maximal RAM
     codec_support_enabled: false  # Nur WAV, kein MP3/FLAC - spart RAM
     on_announcement:
-      - logger.log: "📢 Starte Announcement - micro_wake_word ist gestoppt"
+      - logger.log: "📢 Audio Announcement startet"
     on_idle:
-      - logger.log: "✅ Audio fertig - starte micro_wake_word neu"
-      - delay: 500ms
+      - logger.log: "✅ Audio fertig - starte micro_wake_word sofort neu"
       - micro_wake_word.start:
+
+# Debug-Sensor für freien Heap-Speicher
+debug:
+  update_interval: 1s
+
+sensor:
+  - platform: debug
+    free:
+      name: "Free Heap"
+      id: free_heap
 
 # API - Services werden vom Media Player automatisch bereitgestellt
 api:
   password: ""
-
-# RTTTL Buzzer für Test-Töne
-rtttl:
-  id: rtttl_buzzer
-  speaker: cosmo_speaker
 
 # PA (Power Amplifier) einschalten
 switch:
@@ -148,11 +157,9 @@ binary_sensor:
     id: wake_word_detected
     on_press:
       then:
-        - logger.log: "🔔 Wake Word - Stoppe Erkennung für Audio..."
-        # Wichtig: micro_wake_word stoppen um RAM freizugeben!
-        - micro_wake_word.stop:
-        - delay: 100ms  # Kurz warten bis RAM frei ist
-        - rtttl.play: "beep:d=4,o=5,b=100:c6"
+        - logger.log: "🔔 Wake Word erkannt - warte auf TTS vom Python-Script"
+        # Kein RTTTL Beep mehr - das kollidiert mit dem Media Player!
+        # micro_wake_word wird bereits im on_wake_word_detected gestoppt
 
 # --- DISPLAY & SCHRIFT (SP-ESP32-S3-1.28-BOX) ---
 # SPI Bus Konfiguration für das Display
@@ -213,20 +220,19 @@ text_sensor:
     
 micro_wake_word:
   microphone: cosmo_mic
+  stop_after_detection: true  # WICHTIG: Stoppt automatisch und gibt RAM frei!
   on_wake_word_detected:
-    - logger.log: "🎤 WAKE WORD ERKANNT!"
+    - logger.log: "🎤 WAKE WORD ERKANNT! (micro_wake_word stoppt automatisch)"
     - binary_sensor.template.publish:
         id: wake_word_detected
         state: ON
-    - delay: 500ms
+    - delay: 300ms
     - binary_sensor.template.publish:
         id: wake_word_detected
         state: OFF
-    # KEIN automatisches Neustarten hier! 
-    # Das macht der media_player on_idle nachdem Audio fertig ist
   models:
     - model: okay_nabu
-      probability_cutoff: 0.85  # Höher = weniger False Positives
+      probability_cutoff: 0.85
 
 # Debug: Regelmäßig Status loggen
 interval:
