@@ -46,9 +46,7 @@ wifi:
     ssid: "Cosmo Fallback Hotspot"
 
 # Native API für die Kommunikation mit Home Assistant oder anderen Clients
-api:
-  # Passwort optional, für Sicherheit in Python-Skript nutzen
-  password: "" # Hier leer gelassen, kann für Zugriffsschutz gesetzt werden
+# (Services sind unten definiert zusammen mit http_request)
 
 # Aktiviert das Logging über USB (Serial) und WLAN
 logger:
@@ -106,19 +104,20 @@ speaker:
     channel: left
     audio_dac: es8311_codec
 
-# Voice Assistant für Python TTS Streaming
-voice_assistant:
-  id: cosmo_voice
-  microphone: cosmo_mic
-  speaker: cosmo_speaker
-  use_wake_word: false
-  on_tts_stream_start:
-    - logger.log: "🔊 TTS Stream startet..."
-    - micro_wake_word.stop:
-  on_tts_stream_end:
-    - logger.log: "🔊 TTS Stream beendet"
-    - delay: 500ms
-    - micro_wake_word.start:
+# Media Player mit Speaker - kann URLs streamen!
+media_player:
+  - platform: speaker
+    name: "Cosmo Media Player"
+    id: cosmo_media_player
+    announcement_pipeline:
+      speaker: cosmo_speaker
+      format: WAV
+      sample_rate: 16000
+      num_channels: 1
+
+# API - Services werden vom Media Player automatisch bereitgestellt
+api:
+  password: ""
 
 # RTTTL Buzzer für Test-Töne
 rtttl:

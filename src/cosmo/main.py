@@ -1,12 +1,18 @@
 import asyncio
 import io
+import wave
+import socket
 from pathlib import Path
-from aioesphomeapi import APIClient, ReconnectLogic, VoiceAssistantEventType
+from aiohttp import web
+from aioesphomeapi import APIClient, ReconnectLogic
 from piper import PiperVoice
 
 ESP_IP = "192.168.178.82"  # Deine ESP32 IP
 ESP_PORT = 6053
 ESP_PASSWORD = ""
+
+# HTTP Server Port
+HTTP_PORT = 8080
 
 # Piper TTS Einstellungen
 MODEL_PATH = Path(__file__).parent.parent.parent / "models" / "de_DE-thorsten-high.onnx"
@@ -17,153 +23,143 @@ voice = PiperVoice.load(str(MODEL_PATH))
 SAMPLE_RATE = voice.config.sample_rate  # 22050 für thorsten-high
 print(f"✅ Piper TTS bereit! Sample Rate: {SAMPLE_RATE}")
 
+# Aktuelles Audio für HTTP Server
+current_audio: bytes = b""
 
-def generate_tts_raw(text: str) -> bytes:
-    """Generiert RAW PCM Audio mit Piper TTS (16-bit, mono)"""
+
+def get_local_ip() -> str:
+    """Ermittelt die lokale IP-Adresse"""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+    finally:
+        s.close()
+    return ip
+
+
+def generate_tts_wav(text: str, target_rate: int = 16000) -> bytes:
+    """Generiert WAV Audio mit Piper TTS, optional resampled"""
     print(f"🔊 Generiere TTS: '{text}'")
     
-    audio_buffer = io.BytesIO()
-    
-    # synthesize() gibt AudioChunk Objekte zurück
+    # Erst RAW Audio generieren
+    raw_buffer = io.BytesIO()
     for chunk in voice.synthesize(text):
-        audio_buffer.write(chunk.audio_int16_bytes)
+        raw_buffer.write(chunk.audio_int16_bytes)
+    raw_data = raw_buffer.getvalue()
     
-    raw_data = audio_buffer.getvalue()
-    print(f"✅ RAW Audio generiert: {len(raw_data)} bytes ({len(raw_data) // 2} samples)")
-    return raw_data
+    # Resample wenn nötig
+    if SAMPLE_RATE != target_rate:
+        import struct
+        samples = struct.unpack(f'<{len(raw_data)//2}h', raw_data)
+        ratio = target_rate / SAMPLE_RATE
+        new_length = int(len(samples) * ratio)
+        resampled = []
+        for i in range(new_length):
+            src_idx = int(i / ratio)
+            if src_idx < len(samples):
+                resampled.append(samples[src_idx])
+        raw_data = struct.pack(f'<{len(resampled)}h', *resampled)
+        print(f"  Resampled: {SAMPLE_RATE} → {target_rate} Hz")
+    
+    # WAV erstellen
+    wav_buffer = io.BytesIO()
+    with wave.open(wav_buffer, 'wb') as wav_file:
+        wav_file.setframerate(target_rate)
+        wav_file.setsampwidth(2)  # 16-bit
+        wav_file.setnchannels(1)  # Mono
+        wav_file.writeframes(raw_data)
+    
+    wav_data = wav_buffer.getvalue()
+    print(f"✅ WAV generiert: {len(wav_data)} bytes")
+    return wav_data
 
 
-def resample_audio(audio: bytes, from_rate: int, to_rate: int) -> bytes:
-    """Einfaches Resampling durch Wiederholung/Überspringen von Samples"""
-    import struct
+async def audio_handler(request):
+    """HTTP Handler für Audio"""
+    global current_audio
+    if current_audio:
+        return web.Response(
+            body=current_audio,
+            content_type='audio/wav',
+            headers={'Content-Length': str(len(current_audio))}
+        )
+    return web.Response(status=404, text="No audio")
+
+
+async def start_http_server():
+    """Startet HTTP Server"""
+    app = web.Application()
+    app.router.add_get('/audio.wav', audio_handler)
     
-    # 16-bit samples
-    samples = struct.unpack(f'<{len(audio)//2}h', audio)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', HTTP_PORT)
+    await site.start()
     
-    ratio = to_rate / from_rate
-    new_length = int(len(samples) * ratio)
-    
-    resampled = []
-    for i in range(new_length):
-        src_idx = int(i / ratio)
-        if src_idx < len(samples):
-            resampled.append(samples[src_idx])
-    
-    return struct.pack(f'<{len(resampled)}h', *resampled)
+    local_ip = get_local_ip()
+    print(f"🌐 HTTP Server: http://{local_ip}:{HTTP_PORT}")
+    return local_ip
 
 
 # Globale Variablen
 wake_word_sensor_key = None
+media_player_key = None
 cli = None
-voice_assistant_started = False
-
-
-async def handle_voice_assistant_start(conversation_id: str, flags: int, audio_settings: dict, wake_word_phrase: str | None):
-    """Callback wenn Voice Assistant gestartet wird"""
-    global voice_assistant_started
-    print(f"🎙️ Voice Assistant gestartet! conversation_id={conversation_id}")
-    voice_assistant_started = True
-
-
-async def handle_voice_assistant_stop():
-    """Callback wenn Voice Assistant gestoppt wird"""
-    global voice_assistant_started
-    print("🛑 Voice Assistant gestoppt")
-    voice_assistant_started = False
+local_ip = None
 
 
 async def send_tts_to_speaker(text: str):
-    """Sendet TTS Audio zum ESP32 Speaker"""
-    global cli
+    """Generiert TTS und sendet URL an Media Player"""
+    global cli, current_audio, local_ip, media_player_key
     
-    # TTS generieren (22050 Hz)
-    raw_audio = generate_tts_raw(text)
+    # TTS als WAV generieren (16kHz für ESP32)
+    current_audio = generate_tts_wav(text, target_rate=16000)
     
-    # Resample zu 16000 Hz (ESP32 Speaker Rate)
-    print("🔄 Resample von 22050 Hz auf 16000 Hz...")
-    resampled_audio = resample_audio(raw_audio, 22050, 16000)
-    print(f"✅ Resampled: {len(resampled_audio)} bytes")
-    
-    print(f"🔈 Sende TTS Audio zum ESP32...")
+    # Audio URL
+    audio_url = f"http://{local_ip}:{HTTP_PORT}/audio.wav"
+    print(f"🔈 Sende Audio URL an Media Player: {audio_url}")
     
     try:
-        # TTS Stream Start Event
-        cli.send_voice_assistant_event(
-            event_type=VoiceAssistantEventType.VOICE_ASSISTANT_TTS_STREAM_START,
-            data={}
+        # Media Player Befehl senden (ist synchron, kein await!)
+        cli.media_player_command(
+            key=media_player_key,
+            media_url=audio_url,
         )
-        print("  → TTS_STREAM_START")
-        
-        await asyncio.sleep(0.1)
-        
-        # Audio in Chunks senden
-        CHUNK_SIZE = 1024  # 512 samples bei 16-bit
-        chunks_sent = 0
-        for i in range(0, len(resampled_audio), CHUNK_SIZE):
-            chunk = resampled_audio[i:i + CHUNK_SIZE]
-            cli.send_voice_assistant_audio(chunk)
-            chunks_sent += 1
-            await asyncio.sleep(0.03)  # ~32ms pro Chunk bei 16kHz
-        
-        print(f"  → {chunks_sent} Chunks gesendet ({len(resampled_audio)} bytes)")
-        
-        await asyncio.sleep(0.5)
-        
-        # TTS Stream End Event
-        cli.send_voice_assistant_event(
-            event_type=VoiceAssistantEventType.VOICE_ASSISTANT_TTS_STREAM_END,
-            data={}
-        )
-        print("  → TTS_STREAM_END")
-        print("✅ TTS gesendet!")
-        
+        print("✅ Media Player gestartet!")
     except Exception as e:
         print(f"❌ Fehler: {e}")
 
 
 async def main():
-    global wake_word_sensor_key, cli
+    global wake_word_sensor_key, media_player_key, cli, local_ip
+    
+    # HTTP Server starten
+    local_ip = await start_http_server()
     
     cli = APIClient(ESP_IP, ESP_PORT, ESP_PASSWORD)
     
     async def on_connect():
-        global wake_word_sensor_key
+        global wake_word_sensor_key, media_player_key
         print("✅ Verbindung zu Cosmo steht!")
         
-        # Entities abrufen
+        # Entities und Services abrufen
         entities, services = await cli.list_entities_services()
         
-        print("\n📋 Verfügbare Entities:")
+        print("\n📋 Entities:")
         for e in entities:
             e_name = getattr(e, 'name', 'N/A')
             e_type = type(e).__name__
-            print(f"  - {e_type}: key={e.key}, name={e_name}")
-            
+            print(f"  - {e_type}: {e_name} (key={e.key})")
             if 'Wake Word' in e_name:
                 wake_word_sensor_key = e.key
-                print(f"    ☝️ Wake Word Sensor!")
+            if 'Media Player' in e_name:
+                media_player_key = e.key
+                print(f"    ☝️ Media Player gefunden!")
         
-        # Services anzeigen
-        print("\n📋 Verfügbare Services:")
+        print("\n📋 Services:")
         for s in services:
-            print(f"  - {s.name}")
-        
-        # Voice Assistant subscriben
-        try:
-            async def va_handle_start(conversation_id: str, flags: int, audio_settings, wake_word_phrase: str | None):
-                print(f"🎙️ Voice Assistant Start: {conversation_id}")
-                return 0  # port (nicht verwendet)
-            
-            async def va_handle_stop(abort: bool):
-                print(f"🛑 Voice Assistant Stop (abort={abort})")
-            
-            stop_callback = cli.subscribe_voice_assistant(
-                handle_start=va_handle_start,
-                handle_stop=va_handle_stop,
-            )
-            print("\n✅ Voice Assistant subscribed!")
-        except Exception as e:
-            print(f"\n⚠️ Voice Assistant subscribe fehlgeschlagen: {e}")
+            print(f"  - {s.name} (key={s.key})")
         
         async def handle_wake_word():
             print("\n🎤 Wake Word erkannt!")
@@ -172,7 +168,6 @@ async def main():
         def on_state_change(state):
             if wake_word_sensor_key and hasattr(state, 'key') and state.key == wake_word_sensor_key:
                 if hasattr(state, 'state') and state.state:
-                    print(f"📡 Wake Word!")
                     asyncio.create_task(handle_wake_word())
         
         cli.subscribe_states(on_state_change)
@@ -182,7 +177,7 @@ async def main():
         print("⚠️ Verbindung getrennt...")
     
     async def on_connect_error(err):
-        print(f"❌ Verbindungsfehler: {err}")
+        print(f"❌ Fehler: {err}")
     
     reconnect = ReconnectLogic(
         client=cli,
