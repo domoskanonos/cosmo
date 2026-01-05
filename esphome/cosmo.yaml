@@ -17,8 +17,11 @@ esphome:
     priority: -100 # Niedrige Priorität = alles andere ist bereits initialisiert
     then:
       - output.turn_on: backlight
+      - media_player.volume_set:
+          id: cosmo_media_player
+          volume: 75%
       - micro_wake_word.start:
-      - logger.log: "✅ Cosmo ist bereit und hört auf das Wake Word!"
+      - logger.log: "🚀 Boot: Display + Volume 75% + Wake Word aktiv"
 
 # Backlight Output (active low auf diesem Board)
 output:
