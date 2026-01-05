@@ -1,3 +1,7 @@
+# Aktiviert die Weboberfläche
+web_server:
+  port: 80
+
 substitutions:
   name: "cosmo-box-3"
   friendly_name: "Cosmo AI"
