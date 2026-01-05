@@ -13,6 +13,22 @@ esphome:
   friendly_name: ${friendly_name} # Setzt den Anzeigenamen
   min_version: 2024.6.0 # Mindestversion von ESPHome, die zum Kompilieren benötigt wird
   name_add_mac_suffix: true # Fügt die letzten Stellen der MAC-Adresse an den Namen an, um Konflikte zu vermeiden
+  on_boot:
+    priority: -100 # Niedrige Priorität, damit alles andere zuerst initialisiert wird
+    then:
+      - delay: 2s # Kurz warten bis alles bereit ist
+      - output.turn_on: backlight # Display Backlight einschalten
+      - delay: 3s
+      - micro_wake_word.start: # Wake Word Erkennung starten
+      - logger.log: "Cosmo ist bereit und hört auf das Wake Word!"
+
+# Backlight Output (active low auf diesem Board)
+output:
+  - platform: gpio
+    pin: 
+      number: GPIO42
+      inverted: true
+    id: backlight
 
 # Spezifische Einstellungen für den ESP32 Mikrocontroller
 esp32:
@@ -36,40 +52,74 @@ api:
 
 # Aktiviert das Logging über USB (Serial) und WLAN
 logger:
+  level: DEBUG
+  logs:
+      micro_wake_word: DEBUG
 
 # Over-The-Air Updates ermöglichen (Firmware-Updates über WLAN)
 ota:
   - platform: esphome
 
-# --- AUDIO HARDWARE ---
+# --- AUDIO HARDWARE (SP-ESP32-S3-1.28-BOX mit ES8311) ---
+# I2C für ES8311 Audio Codec
+i2c:
+  sda: GPIO15
+  scl: GPIO14
+  scan: true
+
+# ES8311 Audio Codec (DAC + ADC)
+audio_dac:
+  - platform: es8311
+    id: es8311_codec
+    bits_per_sample: 16bit
+    sample_rate: 16000
+    mic_gain: 42dB  # Maximale Verstärkung für Wake Word
+
 # Konfiguration des I2S Bus für Audio-Datenübertragung
 i2s_audio:
-  - id: i2s_bus # ID zum Referenzieren in Mikrofon/Lautsprecher
-    i2s_lrclk_pin: GPIO45 # Left/Right Clock Pin (Word Select)
-    i2s_bclk_pin: GPIO7 # Bit Clock Pin
+  - id: i2s_bus
+    i2s_lrclk_pin: GPIO45  # WS/LRCK
+    i2s_bclk_pin: GPIO9    # BCLK/SCLK
+    i2s_mclk_pin: GPIO16   # MCLK
 
-# Mikrofon Konfiguration
+# Mikrofon Konfiguration (über ES8311)
 microphone:
-  - platform: i2s_audio # Verwendet den I2S Bus
-    id: cosmo_mic # Interne ID für das Mikrofon
-    i2s_audio_id: i2s_bus # Verknüpfung zum oben definierten Bus
-    adc_type: external # Externer Analog-Digital-Wandler (I2S Mikrofon)
-    pdm: false # Pulse Density Modulation deaktiviert (Standard I2S)
-    i2s_din_pin: GPIO8  # Data In Pin (Audio-Daten vom Mikrofon zum ESP)
+  - platform: i2s_audio
+    id: cosmo_mic
+    i2s_audio_id: i2s_bus
+    adc_type: external
+    pdm: false
+    i2s_din_pin: GPIO10
+    channel: left
+    bits_per_sample: 16bit
+    sample_rate: 16000
 
-# Lautsprecher Konfiguration
+# Lautsprecher Konfiguration (über ES8311)
 speaker:
-  - platform: i2s_audio # Verwendet den I2S Bus
-    id: cosmo_speaker # Interne ID für den Lautsprecher
-    i2s_audio_id: i2s_bus # Verknüpfung zum oben definierten Bus
-    dac_type: external   # Externer Digital-Analog-Wandler (I2S Verstärker/DAC)
-    i2s_dout_pin: GPIO15 # Data Out Pin (Audio-Daten vom ESP zum Verstärker)
+  - platform: i2s_audio
+    id: cosmo_speaker
+    i2s_audio_id: i2s_bus
+    dac_type: external
+    i2s_dout_pin: GPIO8
+    bits_per_sample: 16bit
+    sample_rate: 16000
+    channel: left
+    audio_dac: es8311_codec
 
-# --- DISPLAY & SCHRIFT ---
+# PA (Power Amplifier) einschalten
+switch:
+  - platform: gpio
+    name: "Speaker Enable"
+    id: pa_enable
+    pin: GPIO46
+    restore_mode: ALWAYS_ON
+
+# --- DISPLAY & SCHRIFT (SP-ESP32-S3-1.28-BOX) ---
 # SPI Bus Konfiguration für das Display
 spi:
-  clk_pin: GPIO40 # Clock Pin für SPI
-  mosi_pin: GPIO41 # Master Out Slave In Pin (Daten zum Display)
+  id: spi_bus
+  clk_pin: GPIO4   # SCLK
+  mosi_pin: GPIO2  # MOSI
 
 # --- SCHRIFTEN ---
 # Definition der verwendeten Schriftarten (werden von Google Fonts geladen)
@@ -82,38 +132,33 @@ font:
     size: 14 # Schriftgröße in Pixeln
 
 # --- DISPLAY ---
-# Konfiguration des ST7789V Displays
+# Konfiguration des GC9A01 Displays (1.28" rund)
 display:
-  - platform: st7789v
+  - platform: ili9xxx
+    model: GC9A01A
     id: cosmo_display
-    model: custom # Benutzerdefiniertes Modell, da Auflösung spezifiziert wird
-    height: 240 # Höhe des Displays in Pixeln
-    width: 320 # Breite des Displays in Pixeln
-    offset_height: 0    # Versatz in der Höhe (Hardware-abhängig)
-    offset_width: 0     # Versatz in der Breite (Hardware-abhängig)
-    cs_pin: GPIO5 # Chip Select Pin
-    dc_pin: GPIO4 # Data/Command Pin
-    reset_pin: GPIO48 # Reset Pin
-    backlight_pin: GPIO47 # Pin für die Hintergrundbeleuchtung
-    rotation: 90 # Rotation des Bildschirminhalts (0, 90, 180, 270)
+    spi_id: spi_bus
+    dimensions:
+      height: 240
+      width: 240
+    cs_pin: GPIO5
+    dc_pin: GPIO47
+    reset_pin: GPIO38
+    invert_colors: false
+    update_interval: 1s
     # Lambda Funktion zum Zeichnen auf dem Display (C++ Code)
     lambda: |-
       // Hintergrund schwarz füllen
       it.fill(Color::BLACK);
       
-      // Augen zeichnen (Gelb) - Linkes und rechtes Auge
-      it.filled_circle(80, 80, 30, Color(0xFFFF00));
-      it.filled_circle(240, 80, 30, Color(0xFFFF00));
+      // Augen zeichnen (Gelb) - Für 240x240 rundes Display
+      it.filled_circle(80, 90, 25, Color(0xFFFF00));   // Linkes Auge
+      it.filled_circle(160, 90, 25, Color(0xFFFF00));  // Rechtes Auge
       
-      // Texte anzeigen
-      // Zeigt den Text des Users (klein, grau)
-      it.printf(160, 160, id(font_small), Color(0x888888), TextAlign::CENTER, "%s", id(user_text).state.c_str());
-      // Zeigt den Text des Bots (normal, weiß)
-      it.printf(160, 200, id(font_normal), Color(0xFFFFFF), TextAlign::CENTER, "%s", id(bot_text).state.c_str());
-
-      
-# --- SENSOREN FÜR TEXT-ÜBERTRAGUNG ---
-# Template Sensoren, um Text-Zustände zu speichern (z.B. für Display-Anzeige)
+      // Texte anzeigen (zentriert für 240x240)
+      it.printf(120, 160, id(font_small), Color(0x888888), TextAlign::CENTER, "%s", id(user_text).state.c_str());
+      it.printf(120, 190, id(font_normal), Color(0xFFFFFF), TextAlign::CENTER, "%s", id(bot_text).state.c_str());
+    
 text_sensor:
   - platform: template
     name: "User Text"
@@ -122,11 +167,35 @@ text_sensor:
   - platform: template
     name: "Bot Response"
     id: bot_text
+    lambda: |-
+          return {"Bereit"};
     update_interval: never # Wird nur manuell aktualisiert
 
-# --- VOICE ASSISTANT ---
-# Konfiguration des Sprachassistenten (Voice Pipeline)
-voice_assistant:
-  microphone: cosmo_mic # Verwendetes Mikrofon
-  speaker: cosmo_speaker # Verwendeter Lautsprecher
-  use_wake_word: true # Aktiviert Wake-Word-Erkennung (falls konfiguriert)
+# Binary Sensor um Wake Word Status an Python zu senden
+binary_sensor:
+  - platform: template
+    name: "Wake Word Detected"
+    id: wake_word_detected
+    
+micro_wake_word:
+  microphone: cosmo_mic
+  on_wake_word_detected:
+    - logger.log: "🎤 WAKE WORD ERKANNT!"
+    - binary_sensor.template.publish:
+        id: wake_word_detected
+        state: ON
+    - delay: 500ms
+    - binary_sensor.template.publish:
+        id: wake_word_detected
+        state: OFF
+  models:
+    - model: okay_nabu
+      probability_cutoff: 0.5
+
+# Debug: Regelmäßig Status loggen
+interval:
+  - interval: 10s
+    then:
+      - logger.log: 
+          format: "🔊 Mikrofon Status: micro_wake_word läuft"
+          level: INFO
