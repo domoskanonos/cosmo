@@ -129,16 +129,6 @@ media_player:
       - logger.log: "✅ Audio fertig - starte micro_wake_word sofort neu"
       - micro_wake_word.start:
 
-# Debug-Sensor für freien Heap-Speicher
-debug:
-  update_interval: 1s
-
-sensor:
-  - platform: debug
-    free:
-      name: "Free Heap"
-      id: free_heap
-
 # API - Services werden vom Media Player automatisch bereitgestellt
 api:
   password: ""
@@ -234,12 +224,3 @@ micro_wake_word:
   models:
     - model: okay_nabu
       probability_cutoff: 0.85
-
-# Debug: Regelmäßig Status loggen
-interval:
-  - interval: 30s
-    then:
-      - logger.log: 
-          format: "📊 Free Heap: %d bytes"
-          args: ['id(free_heap).state']
-          level: INFO
