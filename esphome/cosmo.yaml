@@ -1,111 +1,132 @@
-# Aktiviert die Weboberfläche
+# Aktiviert den integrierten Webserver für Diagnose und OTA-Updates über den Browser
 web_server:
-  port: 80
+  port: 80 # Port, auf dem der Webserver erreichbar ist (Standard HTTP Port)
 
+# Variablen, die im gesamten Konfigurationsfile wiederverwendet werden können
 substitutions:
-  name: "cosmo-box-3"
-  friendly_name: "Cosmo AI"
+  name: "cosmo-box-3" # Interner Hostname des Geräts
+  friendly_name: "Cosmo AI" # Anzeigename für Home Assistant und Logs
 
+# Grundlegende ESPHome Konfiguration
 esphome:
-  name: ${name}
-  friendly_name: ${friendly_name}
-  min_version: 2024.6.0
-  name_add_mac_suffix: true
+  name: ${name} # Setzt den Hostnamen basierend auf der Substitution
+  friendly_name: ${friendly_name} # Setzt den Anzeigenamen
+  min_version: 2024.6.0 # Mindestversion von ESPHome, die zum Kompilieren benötigt wird
+  name_add_mac_suffix: true # Fügt die letzten Stellen der MAC-Adresse an den Namen an, um Konflikte zu vermeiden
 
+# Spezifische Einstellungen für den ESP32 Mikrocontroller
 esp32:
-  board: esp32-s3-devkitc-1
-  variant: esp32s3
+  board: esp32-s3-devkitc-1 # Das verwendete Entwicklerboard (hier ein ESP32-S3)
+  variant: esp32s3 # Die Chip-Variante (S3 ist leistungsstärker, gut für AI/Audio)
   framework:
-    type: esp-idf
+    type: esp-idf # Verwendet das offizielle Espressif IoT Development Framework (statt Arduino)
 
-# WLAN & API
+# WLAN Konfiguration
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
+  ssid: !secret wifi_ssid # WLAN-Name aus secrets.yaml
+  password: !secret wifi_password # WLAN-Passwort aus secrets.yaml
+  # Fallback Access Point, falls keine Verbindung zum WLAN möglich ist
   ap:
     ssid: "Cosmo Fallback Hotspot"
 
+# Native API für die Kommunikation mit Home Assistant oder anderen Clients
 api:
   # Passwort optional, für Sicherheit in Python-Skript nutzen
-  password: ""
+  password: "" # Hier leer gelassen, kann für Zugriffsschutz gesetzt werden
 
+# Aktiviert das Logging über USB (Serial) und WLAN
 logger:
+
+# Over-The-Air Updates ermöglichen (Firmware-Updates über WLAN)
 ota:
   - platform: esphome
 
 # --- AUDIO HARDWARE ---
+# Konfiguration des I2S Bus für Audio-Datenübertragung
 i2s_audio:
-  - id: i2s_bus
-    i2s_lrclk_pin: GPIO45
-    i2s_bclk_pin: GPIO7
+  - id: i2s_bus # ID zum Referenzieren in Mikrofon/Lautsprecher
+    i2s_lrclk_pin: GPIO45 # Left/Right Clock Pin (Word Select)
+    i2s_bclk_pin: GPIO7 # Bit Clock Pin
 
+# Mikrofon Konfiguration
 microphone:
-  - platform: i2s_audio
-    id: cosmo_mic
-    i2s_audio_id: i2s_bus
-    adc_type: external
-    pdm: false
-    i2s_din_pin: GPIO8  # Geändert von data_pin zu i2s_din_pin
+  - platform: i2s_audio # Verwendet den I2S Bus
+    id: cosmo_mic # Interne ID für das Mikrofon
+    i2s_audio_id: i2s_bus # Verknüpfung zum oben definierten Bus
+    adc_type: external # Externer Analog-Digital-Wandler (I2S Mikrofon)
+    pdm: false # Pulse Density Modulation deaktiviert (Standard I2S)
+    i2s_din_pin: GPIO8  # Data In Pin (Audio-Daten vom Mikrofon zum ESP)
 
+# Lautsprecher Konfiguration
 speaker:
-  - platform: i2s_audio
-    id: cosmo_speaker
-    i2s_audio_id: i2s_bus
-    dac_type: external   # Dies hat gefehlt
-    i2s_dout_pin: GPIO15 # Der Pin für den Sound-Ausgang
+  - platform: i2s_audio # Verwendet den I2S Bus
+    id: cosmo_speaker # Interne ID für den Lautsprecher
+    i2s_audio_id: i2s_bus # Verknüpfung zum oben definierten Bus
+    dac_type: external   # Externer Digital-Analog-Wandler (I2S Verstärker/DAC)
+    i2s_dout_pin: GPIO15 # Data Out Pin (Audio-Daten vom ESP zum Verstärker)
 
 # --- DISPLAY & SCHRIFT ---
+# SPI Bus Konfiguration für das Display
 spi:
-  clk_pin: GPIO40
-  mosi_pin: GPIO41
+  clk_pin: GPIO40 # Clock Pin für SPI
+  mosi_pin: GPIO41 # Master Out Slave In Pin (Daten zum Display)
 
 # --- SCHRIFTEN ---
+# Definition der verwendeten Schriftarten (werden von Google Fonts geladen)
 font:
   - file: "gfonts://Roboto"
-    id: font_normal
-    size: 20
+    id: font_normal # ID für normale Textgröße
+    size: 20 # Schriftgröße in Pixeln
   - file: "gfonts://Roboto"
-    id: font_small
-    size: 14
+    id: font_small # ID für kleine Textgröße
+    size: 14 # Schriftgröße in Pixeln
 
 # --- DISPLAY ---
+# Konfiguration des ST7789V Displays
 display:
   - platform: st7789v
     id: cosmo_display
-    model: custom
-    height: 240
-    width: 320
-    offset_height: 0    # Diese beiden Offsets
-    offset_width: 0     # haben noch gefehlt
-    cs_pin: GPIO5
-    dc_pin: GPIO4
-    reset_pin: GPIO48
-    backlight_pin: GPIO47
-    rotation: 90
+    model: custom # Benutzerdefiniertes Modell, da Auflösung spezifiziert wird
+    height: 240 # Höhe des Displays in Pixeln
+    width: 320 # Breite des Displays in Pixeln
+    offset_height: 0    # Versatz in der Höhe (Hardware-abhängig)
+    offset_width: 0     # Versatz in der Breite (Hardware-abhängig)
+    cs_pin: GPIO5 # Chip Select Pin
+    dc_pin: GPIO4 # Data/Command Pin
+    reset_pin: GPIO48 # Reset Pin
+    backlight_pin: GPIO47 # Pin für die Hintergrundbeleuchtung
+    rotation: 90 # Rotation des Bildschirminhalts (0, 90, 180, 270)
+    # Lambda Funktion zum Zeichnen auf dem Display (C++ Code)
     lambda: |-
+      // Hintergrund schwarz füllen
       it.fill(Color::BLACK);
-      // Augen zeichnen (Gelb)
+      
+      // Augen zeichnen (Gelb) - Linkes und rechtes Auge
       it.filled_circle(80, 80, 30, Color(0xFFFF00));
       it.filled_circle(240, 80, 30, Color(0xFFFF00));
       
       // Texte anzeigen
+      // Zeigt den Text des Users (klein, grau)
       it.printf(160, 160, id(font_small), Color(0x888888), TextAlign::CENTER, "%s", id(user_text).state.c_str());
+      // Zeigt den Text des Bots (normal, weiß)
       it.printf(160, 200, id(font_normal), Color(0xFFFFFF), TextAlign::CENTER, "%s", id(bot_text).state.c_str());
 
       
 # --- SENSOREN FÜR TEXT-ÜBERTRAGUNG ---
+# Template Sensoren, um Text-Zustände zu speichern (z.B. für Display-Anzeige)
 text_sensor:
   - platform: template
     name: "User Text"
     id: user_text
-    update_interval: never
+    update_interval: never # Wird nur manuell aktualisiert
   - platform: template
     name: "Bot Response"
     id: bot_text
-    update_interval: never
+    update_interval: never # Wird nur manuell aktualisiert
 
 # --- VOICE ASSISTANT ---
+# Konfiguration des Sprachassistenten (Voice Pipeline)
 voice_assistant:
-  microphone: cosmo_mic
-  speaker: cosmo_speaker
-  use_wake_word: true
+  microphone: cosmo_mic # Verwendetes Mikrofon
+  speaker: cosmo_speaker # Verwendeter Lautsprecher
+  use_wake_word: true # Aktiviert Wake-Word-Erkennung (falls konfiguriert)
