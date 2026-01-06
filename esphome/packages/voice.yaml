@@ -2,15 +2,8 @@
 script:
   - id: start_wake_word
     then:
-      - if:
-          condition:
-            - not:
-                voice_assistant.is_running:
-          then:
-
-            - logger.log: "🎙️ Starte Wake Word Detection"
-            - micro_wake_word.start:
-
+      - logger.log: "🎙️ Starte Wake Word Detection v2"
+      - micro_wake_word.start:
   - id: stop_wake_word
     then:
       - logger.log: "🔇 Stoppe Wake Word"
