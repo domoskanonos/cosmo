@@ -95,9 +95,9 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /run/user/1000/podman/podman.sock:/var/run/docker.sock:ro  # adjust if you use rootful Podman
+      - /run/podman/podman.sock:/var/run/docker.sock:ro  # Podman-Socket auf Docker-Pfad mappen
     environment:
-      - DOZZLE_REMOTE_HOST=unix:///var/run/docker.sock
+      - TZ=Europe/Berlin
     networks:
       - voice-net
 
