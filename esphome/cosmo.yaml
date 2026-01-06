@@ -1,5 +1,6 @@
 # Cosmo Voice Assistant - ESPHome Konfiguration für Home Assistant
 # Hardware: SP-ESP32-S3-1.28-BOX mit ES8311 Audio Codec
+# Basierend auf offizieller ESP32-S3-Box-3 Konfiguration
 
 substitutions:
   name: "cosmo-box-3"
@@ -14,7 +15,7 @@ esphome:
     priority: -100
     then:
       - output.turn_on: backlight
-      - micro_wake_word.start:
+      - script.execute: start_wake_word
       - logger.log: "🚀 Boot: Display + Wake Word aktiv"
 
 esp32:
@@ -23,7 +24,6 @@ esp32:
   framework:
     type: esp-idf
 
-# Netzwerk - High-Performance deaktiviert (kein PSRAM)
 network:
   enable_high_performance: false
 
@@ -41,7 +41,6 @@ logger:
 ota:
   - platform: esphome
 
-# Web-Interface für Logs und Diagnose
 web_server:
   port: 80
 
@@ -85,7 +84,36 @@ speaker:
     sample_rate: 16000
     channel: left
     audio_dac: es8311_codec
-    timeout: never  # Wichtig: Nicht automatisch stoppen
+    buffer_duration: 100ms
+
+# Media Player - handhabt I2S-Bus Switching korrekt
+media_player:
+  - platform: speaker
+    name: "Cosmo Media Player"
+    id: cosmo_media_player
+    speaker: cosmo_speaker
+    announcement_pipeline:
+      speaker: cosmo_speaker
+      format: WAV
+      sample_rate: 16000
+      num_channels: 1
+    on_announcement:
+      - logger.log: "📢 Announcement startet"
+      # Stoppe Wake Word wenn Mikrofon aktiv ist
+      - if:
+          condition:
+            - microphone.is_capturing:
+          then:
+            - script.execute: stop_wake_word
+    on_idle:
+      - logger.log: "📢 Media Player idle"
+      # Starte Wake Word nur wenn VA nicht läuft
+      - if:
+          condition:
+            not:
+              voice_assistant.is_running:
+          then:
+            - script.execute: start_wake_word
 
 # --- OUTPUTS ---
 output:
@@ -146,29 +174,48 @@ text_sensor:
     id: bot_text
     update_interval: never
 
+# --- SCRIPTS für I2S-Bus Management ---
+script:
+  - id: start_wake_word
+    then:
+      - if:
+          condition:
+            - not:
+                voice_assistant.is_running:
+          then:
+            - logger.log: "🎙️ Starte Wake Word Detection"
+            - micro_wake_word.start:
+
+  - id: stop_wake_word
+    then:
+      - logger.log: "🔇 Stoppe Wake Word"
+      - micro_wake_word.stop:
+
 # --- WAKE WORD ---
 micro_wake_word:
+  id: mww
   microphone: cosmo_mic
-  stop_after_detection: true
-  on_wake_word_detected:
-    - logger.log: "🎙️ WAKE WORD! Starte Voice Assistant..."
-    - voice_assistant.start:
   models:
     - model: okay_nabu
       probability_cutoff: 0.85
+  on_wake_word_detected:
+    - logger.log: "🎙️ WAKE WORD erkannt!"
+    - voice_assistant.start:
+        wake_word: !lambda return wake_word;
 
 # --- VOICE ASSISTANT (Home Assistant) ---
 voice_assistant:
+  id: va
   microphone: cosmo_mic
-  speaker: cosmo_speaker
-  use_wake_word: false
+  media_player: cosmo_media_player
+  micro_wake_word: mww
   noise_suppression_level: 2
   auto_gain: 31dBFS
   volume_multiplier: 2.0
   on_listening:
     - logger.log: "🎤 Höre zu..."
   on_stt_vad_end:
-    - logger.log: "🔇 VAD Ende"
+    - logger.log: "🔇 VAD Ende - Verarbeitung..."
   on_stt_end:
     - logger.log:
         format: "📝 Erkannt: %s"
@@ -183,24 +230,38 @@ voice_assistant:
     - text_sensor.template.publish:
         id: bot_text
         state: !lambda 'return x;'
-  on_tts_stream_start:
-    - logger.log: "🔈 Audio Stream startet..."
-  on_tts_stream_end:
-    - logger.log: "🔈 Audio Stream beendet"
-    - speaker.stop:
-        id: cosmo_speaker
   on_end:
-    - logger.log: "✅ Fertig - stoppe Speaker"
-    - speaker.stop:
-        id: cosmo_speaker
-    - delay: 500ms
-    - logger.log: "🎙️ Starte Wake Word Detection"
-    - micro_wake_word.start:
+    - logger.log: "✅ Voice Assistant fertig"
+    # Warte bis Media Player fertig ist
+    - wait_until:
+        condition:
+          - media_player.is_announcing:
+        timeout: 500ms
+    # Warte bis I2S-Bus frei ist
+    - wait_until:
+        - and:
+            - not:
+                media_player.is_announcing:
+            - not:
+                speaker.is_playing:
+    - logger.log: "🎙️ Starte Wake Word neu"
+    - script.execute: start_wake_word
+    # Text zurücksetzen
+    - text_sensor.template.publish:
+        id: user_text
+        state: ""
+    - text_sensor.template.publish:
+        id: bot_text
+        state: ""
   on_error:
     - logger.log:
         format: "❌ Fehler: %s - %s"
         args: ['code.c_str()', 'message.c_str()']
-    - speaker.stop:
-        id: cosmo_speaker
-    - delay: 500ms
-    - micro_wake_word.start:
+    - delay: 1s
+    - script.execute: start_wake_word
+  on_client_connected:
+    - logger.log: "✅ Home Assistant verbunden"
+    - script.execute: start_wake_word
+  on_client_disconnected:
+    - logger.log: "❌ Home Assistant getrennt"
+    - script.execute: stop_wake_word
