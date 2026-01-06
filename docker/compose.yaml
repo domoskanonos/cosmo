@@ -11,14 +11,19 @@ services:
     container_name: homeassistant
     restart: unless-stopped
     privileged: true
-    # network_mode: host  # Funktioniert nicht unter Windows/Podman
     ports:
-      - "8123:8123"  # Home Assistant Web UI
+      - "8123:8123"
     volumes:
       - ./homeassistant/config:/config
       - /etc/localtime:/etc/localtime:ro
     environment:
       - TZ=Europe/Berlin
+    depends_on:
+      - whisper
+      - piper
+      - ollama
+    networks:
+      - voice-net
 
   # ============== WHISPER (Speech-to-Text) ==============
   whisper:
@@ -36,6 +41,8 @@ services:
       --download-dir /data
     environment:
       - TZ=Europe/Berlin
+    networks:
+      - voice-net
 
   # ============== PIPER (Text-to-Speech) ==============
   piper:
@@ -52,6 +59,8 @@ services:
       --download-dir /data
     environment:
       - TZ=Europe/Berlin
+    networks:
+      - voice-net
 
   # ============== OLLAMA (Local LLM) ==============
   ollama:
@@ -64,16 +73,10 @@ services:
       - ./ollama/data:/root/.ollama
     environment:
       - TZ=Europe/Berlin
-    # GPU Support (optional, auskommentieren wenn keine GPU)
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - voice-net
 
-# Befehle zum Herunterfahren und Neustarten der Container
-# cd c:\_dev\repositories\cosmo\docker
-# podman compose down
-# podman compose up -d
+networks:
+  voice-net:
+    driver: bridge
