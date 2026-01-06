@@ -13,6 +13,9 @@ globals:
   - id: is_listening
     type: bool
     restore_value: no
+  - id: is_ready
+    type: bool
+    restore_value: no
     initial_value: "false"
 
 spi:
@@ -24,6 +27,9 @@ font:
   - file: "gfonts://Roboto"
     id: font_normal
     size: 20
+  - file: "gfonts://Roboto"
+    id: font_large
+    size: 40
   - file: "gfonts://Roboto"
     id: font_small
     size: 14
@@ -53,6 +59,12 @@ display:
     update_interval: 0.1s # Faster update for animation
     lambda: |-
       it.fill(Color(0xFFFFFF));
+      
+      // Boot Screen
+      if (!id(is_ready)) {
+          it.printf(120, 120, id(font_large), Color(0x000000), TextAlign::CENTER, "Nabu");
+          return;
+      }
       
       // Eyes (Black)
       it.filled_circle(80, 80, 20, Color(0x000000));

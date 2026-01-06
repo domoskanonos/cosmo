@@ -70,6 +70,7 @@ voice_assistant:
         value: "false"
   on_idle:
     - logger.log: "💤 Voice Assistant IDLE - alles fertig"
+    - delay: 200ms # Short delay to allow state transitions
     - script.execute: start_wake_word
     # Text zurücksetzen
     - text_sensor.template.publish:
@@ -93,6 +94,9 @@ voice_assistant:
     - script.execute: start_wake_word
   on_client_connected:
     - logger.log: "✅ Home Assistant verbunden"
+    - globals.set:
+        id: is_ready
+        value: "true"
     # Starting wake word here ensures we are ready
     - script.execute: start_wake_word
   on_client_disconnected:
