@@ -2,10 +2,11 @@
 script:
   - id: start_wake_word
     then:
+      - logger.log: "🔍 start_wake_word called - waiting for idle..."
       - wait_until:
           condition:
             not: voice_assistant.is_running
-      - logger.log: "🎙️ Starte Wake Word Detection v2"
+      - logger.log: "🔍 start_wake_word - voice assistant is idle, starting mic..."
       - micro_wake_word.start:
   - id: stop_wake_word
     then:

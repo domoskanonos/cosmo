@@ -66,7 +66,7 @@ display:
       
       // Mouth Area (Center ~ 120, 140)
       int center_x = 120;
-      int center_y = 140;
+      int center_y = 150;
       int width = 80;
       
       // Ears (Listening Indicators) - Curved for Round Display
