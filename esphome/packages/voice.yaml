@@ -2,6 +2,9 @@
 script:
   - id: start_wake_word
     then:
+      - wait_until:
+          condition:
+            not: voice_assistant.is_running
       - logger.log: "🎙️ Starte Wake Word Detection v2"
       - micro_wake_word.start:
   - id: stop_wake_word
@@ -70,7 +73,6 @@ voice_assistant:
         value: "false"
   on_idle:
     - logger.log: "💤 Voice Assistant IDLE - alles fertig"
-    - delay: 200ms # Short delay to allow state transitions
     - script.execute: start_wake_word
     # Text zurücksetzen
     - text_sensor.template.publish:
