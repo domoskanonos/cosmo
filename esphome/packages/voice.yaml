@@ -38,8 +38,14 @@ voice_assistant:
   volume_multiplier: 2.0
   on_listening:
     - logger.log: "🎤 Höre zu..."
+    - globals.set:
+        id: is_listening
+        value: "true"
   on_stt_vad_end:
     - logger.log: "🔇 VAD Ende - Verarbeitung..."
+    - globals.set:
+        id: is_listening
+        value: "false"
   on_stt_end:
     - logger.log:
         format: "📝 Erkannt: %s"
@@ -47,6 +53,9 @@ voice_assistant:
     - text_sensor.template.publish:
         id: user_text
         state: !lambda 'return x;'
+    - globals.set:
+        id: is_listening
+        value: "false"
   on_tts_start:
     - logger.log:
         format: "🔊 Antwort: %s"

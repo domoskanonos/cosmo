@@ -1,12 +1,16 @@
 substitutions:
   # Standard colors
-  color_bg: "0x000000"
-  color_accent: "0xFFFF00"
-  color_text: "0xFFFFFF"
+  color_bg: "0xFFFFFF"
+  color_accent: "0x000000"
+  color_text: "0x000000"
   color_subtext: "0x888888"
 
 globals:
   - id: is_speaking
+    type: bool
+    restore_value: no
+    initial_value: "false"
+  - id: is_listening
     type: bool
     restore_value: no
     initial_value: "false"
@@ -48,30 +52,34 @@ display:
     invert_colors: false
     update_interval: 0.1s # Faster update for animation
     lambda: |-
-      it.fill(Color(0x000000));
+      it.fill(Color(0xFFFFFF));
       
-      // Eyes
-      it.filled_circle(80, 80, 20, Color(0xFFFF00));
-      it.filled_circle(160, 80, 20, Color(0xFFFF00));
+      // Eyes (Black)
+      it.filled_circle(80, 80, 20, Color(0x000000));
+      it.filled_circle(160, 80, 20, Color(0x000000));
       
       // Mouth Area (Center ~ 120, 140)
       int center_x = 120;
       int center_y = 140;
       int width = 80;
-      int max_height = 40;
       
+      // Ears (Listening Indicators)
+      if (id(is_listening)) {
+          // Left Ear
+          it.filled_circle(0, 120, 15, Color(0x000000));
+          // Right Ear
+          it.filled_circle(240, 120, 15, Color(0x000000));
+      }
+
+      // Mouth Animation
       if (id(is_speaking)) {
          // Speaking: Blinking square
          // Blink every 200ms
          if ((millis() / 200) % 2 == 0) {
             int square_size = 50;
-            it.filled_rectangle(center_x - (square_size / 2), center_y - (square_size / 2), square_size, square_size, Color(0xFFFF00));
+            it.filled_rectangle(center_x - (square_size / 2), center_y - (square_size / 2), square_size, square_size, Color(0x000000));
          }
       } else {
          // Not speaking: Horizontal bar (Closed mouth)
-         it.filled_rectangle(center_x - (width / 2), center_y - 3, width, 6, Color(0xFFFF00));
+         it.filled_rectangle(center_x - (width / 2), center_y - 3, width, 6, Color(0x000000));
       }
-
-      // Text
-      it.printf(120, 180, id(font_small), Color(0x888888), TextAlign::CENTER, "%s", id(user_text).state.c_str());
-      it.printf(120, 210, id(font_normal), Color(0xFFFFFF), TextAlign::CENTER, "%s", id(bot_text).state.c_str());
