@@ -222,8 +222,6 @@ voice_assistant:
     - text_sensor.template.publish:
         id: user_text
         state: !lambda 'return x;'
-  on_tts_stream_start:
-    - logger.log: "🔈 TTS Audio Stream startet..."
   on_tts_start:
     - logger.log:
         format: "🔊 Antwort: %s"
