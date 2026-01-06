@@ -25,14 +25,8 @@ spi:
 
 font:
   - file: "gfonts://Roboto"
-    id: font_normal
-    size: 20
-  - file: "gfonts://Roboto"
     id: font_large
     size: 40
-  - file: "gfonts://Roboto"
-    id: font_small
-    size: 14
 
 text_sensor:
   - platform: template
