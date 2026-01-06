@@ -41,6 +41,10 @@ logger:
 ota:
   - platform: esphome
 
+# Web-Interface für Logs und Diagnose
+web_server:
+  port: 80
+
 # --- AUDIO HARDWARE ---
 i2c:
   sda: GPIO15
@@ -81,6 +85,7 @@ speaker:
     sample_rate: 16000
     channel: left
     audio_dac: es8311_codec
+    timeout: never  # Wichtig: Nicht automatisch stoppen
 
 # --- OUTPUTS ---
 output:
@@ -162,6 +167,8 @@ voice_assistant:
   volume_multiplier: 2.0
   on_listening:
     - logger.log: "🎤 Höre zu..."
+  on_stt_vad_end:
+    - logger.log: "🔇 VAD Ende - Stoppe Mikrofon für TTS"
   on_stt_end:
     - logger.log:
         format: "📝 Erkannt: %s"
@@ -176,6 +183,10 @@ voice_assistant:
     - text_sensor.template.publish:
         id: bot_text
         state: !lambda 'return x;'
+  on_tts_stream_start:
+    - logger.log: "🔈 Audio Stream startet..."
+  on_tts_stream_end:
+    - logger.log: "🔈 Audio Stream beendet"
   on_end:
     - logger.log: "✅ Fertig"
     - delay: 500ms
@@ -184,4 +195,5 @@ voice_assistant:
     - logger.log:
         format: "❌ Fehler: %s - %s"
         args: ['code.c_str()', 'message.c_str()']
+    - delay: 1s
     - micro_wake_word.start:
