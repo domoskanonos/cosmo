@@ -1,91 +1,65 @@
-# Aktiviert den integrierten Webserver für Diagnose und OTA-Updates über den Browser
-web_server:
-  port: 80 # Port, auf dem der Webserver erreichbar ist (Standard HTTP Port)
+# Cosmo Voice Assistant - ESPHome Konfiguration für Home Assistant
+# Hardware: SP-ESP32-S3-1.28-BOX mit ES8311 Audio Codec
 
-# Variablen, die im gesamten Konfigurationsfile wiederverwendet werden können
 substitutions:
-  name: "cosmo-box-3" # Interner Hostname des Geräts
-  friendly_name: "Cosmo AI" # Anzeigename für Home Assistant und Logs
+  name: "cosmo-box-3"
+  friendly_name: "Cosmo AI"
 
-# Grundlegende ESPHome Konfiguration
 esphome:
-  name: ${name} # Setzt den Hostnamen basierend auf der Substitution
-  friendly_name: ${friendly_name} # Setzt den Anzeigenamen
-  min_version: 2024.6.0 # Mindestversion von ESPHome, die zum Kompilieren benötigt wird
-  name_add_mac_suffix: true # Fügt die letzten Stellen der MAC-Adresse an den Namen an, um Konflikte zu vermeiden
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2024.6.0
+  name_add_mac_suffix: true
   on_boot:
-    priority: -100 # Niedrige Priorität = alles andere ist bereits initialisiert
+    priority: -100
     then:
       - output.turn_on: backlight
-      - media_player.volume_set:
-          id: cosmo_media_player
-          volume: 75%
       - micro_wake_word.start:
-      - logger.log: "🚀 Boot: Display + Volume 75% + Wake Word aktiv"
+      - logger.log: "🚀 Boot: Display + Wake Word aktiv"
 
-# Backlight Output (active low auf diesem Board)
-output:
-  - platform: gpio
-    pin: 
-      number: GPIO42
-      inverted: true
-    id: backlight
-
-# Spezifische Einstellungen für den ESP32 Mikrocontroller
 esp32:
-  board: esp32-s3-devkitc-1 # Das verwendete Entwicklerboard (hier ein ESP32-S3)
-  variant: esp32s3 # Die Chip-Variante (S3 ist leistungsstärker, gut für AI/Audio)
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
   framework:
-    type: esp-idf # ESP-IDF Framework für micro_wake_word Support
+    type: esp-idf
 
-# Netzwerk - High-Performance DEAKTIVIEREN wegen fehlendem PSRAM!
+# Netzwerk - High-Performance deaktiviert (kein PSRAM)
 network:
   enable_high_performance: false
 
-# WLAN Konfiguration
 wifi:
-  ssid: !secret wifi_ssid # WLAN-Name aus secrets.yaml
-  password: !secret wifi_password # WLAN-Passwort aus secrets.yaml
-  # Fallback Access Point, falls keine Verbindung zum WLAN möglich ist
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
   ap:
     ssid: "Cosmo Fallback Hotspot"
 
-# Native API für die Kommunikation mit Home Assistant oder anderen Clients
-# (Services sind unten definiert zusammen mit http_request)
+api:
 
-# Aktiviert das Logging über USB (Serial) und WLAN
 logger:
   level: DEBUG
-  logs:
-      micro_wake_word: DEBUG
 
-# Over-The-Air Updates ermöglichen (Firmware-Updates über WLAN)
 ota:
   - platform: esphome
 
-# --- AUDIO HARDWARE (SP-ESP32-S3-1.28-BOX mit ES8311) ---
-# I2C für ES8311 Audio Codec
+# --- AUDIO HARDWARE ---
 i2c:
   sda: GPIO15
   scl: GPIO14
   scan: true
 
-# ES8311 Audio Codec (DAC + ADC)
 audio_dac:
   - platform: es8311
     id: es8311_codec
     bits_per_sample: 16bit
     sample_rate: 16000
-    mic_gain: 42dB  # Maximale Verstärkung für Wake Word
+    mic_gain: 42dB
 
-# Konfiguration des I2S Bus für Audio-Datenübertragung
 i2s_audio:
   - id: i2s_bus
-    i2s_lrclk_pin: GPIO45  # WS/LRCK
-    i2s_bclk_pin: GPIO9    # BCLK/SCLK
-    i2s_mclk_pin: GPIO16   # MCLK
+    i2s_lrclk_pin: GPIO45
+    i2s_bclk_pin: GPIO9
+    i2s_mclk_pin: GPIO16
 
-# Mikrofon Konfiguration (über ES8311)
 microphone:
   - platform: i2s_audio
     id: cosmo_mic
@@ -97,7 +71,6 @@ microphone:
     bits_per_sample: 16bit
     sample_rate: 16000
 
-# Lautsprecher Konfiguration (über ES8311)
 speaker:
   - platform: i2s_audio
     id: cosmo_speaker
@@ -108,32 +81,15 @@ speaker:
     sample_rate: 16000
     channel: left
     audio_dac: es8311_codec
-    buffer_duration: 50ms  # Minimaler Buffer - spart RAM!
-    timeout: 100ms  # Schnelleres Freigeben des I2S-Bus
 
-# Media Player mit Speaker - kann URLs streamen!
-media_player:
-  - platform: speaker
-    name: "Cosmo Media Player"
-    id: cosmo_media_player
-    announcement_pipeline:
-      speaker: cosmo_speaker
-      format: WAV
-      sample_rate: 16000
-      num_channels: 1
-    buffer_size: 4000  # MINIMUM laut Doku (4KB)! Spart maximal RAM
-    codec_support_enabled: false  # Nur WAV, kein MP3/FLAC - spart RAM
-    on_announcement:
-      - logger.log: "📢 Audio Announcement startet"
-    on_idle:
-      - logger.log: "✅ Audio fertig - starte micro_wake_word sofort neu"
-      - micro_wake_word.start:
+# --- OUTPUTS ---
+output:
+  - platform: gpio
+    pin:
+      number: GPIO42
+      inverted: true
+    id: backlight
 
-# API - Services werden vom Media Player automatisch bereitgestellt
-api:
-  password: ""
-
-# PA (Power Amplifier) einschalten
 switch:
   - platform: gpio
     name: "Speaker Enable"
@@ -141,36 +97,20 @@ switch:
     pin: GPIO46
     restore_mode: ALWAYS_ON
 
-# Binary Sensor um Wake Word Status an Python zu senden
-binary_sensor:
-  - platform: template
-    name: "Wake Word Detected"
-    id: wake_word_detected
-    on_press:
-      then:
-        - logger.log: "🔔 Wake Word erkannt - warte auf TTS vom Python-Script"
-        # Kein RTTTL Beep mehr - das kollidiert mit dem Media Player!
-        # micro_wake_word wird bereits im on_wake_word_detected gestoppt
-
-# --- DISPLAY & SCHRIFT (SP-ESP32-S3-1.28-BOX) ---
-# SPI Bus Konfiguration für das Display
+# --- DISPLAY ---
 spi:
   id: spi_bus
-  clk_pin: GPIO4   # SCLK
-  mosi_pin: GPIO2  # MOSI
+  clk_pin: GPIO4
+  mosi_pin: GPIO2
 
-# --- SCHRIFTEN ---
-# Definition der verwendeten Schriftarten (werden von Google Fonts geladen)
 font:
   - file: "gfonts://Roboto"
-    id: font_normal # ID für normale Textgröße
-    size: 20 # Schriftgröße in Pixeln
+    id: font_normal
+    size: 20
   - file: "gfonts://Roboto"
-    id: font_small # ID für kleine Textgröße
-    size: 14 # Schriftgröße in Pixeln
+    id: font_small
+    size: 14
 
-# --- DISPLAY ---
-# Konfiguration des GC9A01 Displays (1.28" rund)
 display:
   - platform: ili9xxx
     model: GC9A01A
@@ -184,66 +124,64 @@ display:
     reset_pin: GPIO38
     invert_colors: false
     update_interval: 1s
-    # Lambda Funktion zum Zeichnen auf dem Display (C++ Code)
     lambda: |-
-      // Hintergrund schwarz füllen
       it.fill(Color::BLACK);
-      
-      // Augen zeichnen (Gelb) - Für 240x240 rundes Display
-      it.filled_circle(80, 90, 25, Color(0xFFFF00));   // Linkes Auge
-      it.filled_circle(160, 90, 25, Color(0xFFFF00));  // Rechtes Auge
-      
-      // Texte anzeigen (zentriert für 240x240)
+      it.filled_circle(80, 90, 25, Color(0xFFFF00));
+      it.filled_circle(160, 90, 25, Color(0xFFFF00));
       it.printf(120, 160, id(font_small), Color(0x888888), TextAlign::CENTER, "%s", id(user_text).state.c_str());
       it.printf(120, 190, id(font_normal), Color(0xFFFFFF), TextAlign::CENTER, "%s", id(bot_text).state.c_str());
-    
+
 text_sensor:
   - platform: template
     name: "User Text"
     id: user_text
-    update_interval: never # Wird nur manuell aktualisiert
+    update_interval: never
   - platform: template
     name: "Bot Response"
     id: bot_text
-    lambda: |-
-          return {"Bereit"};
-    update_interval: never # Wird nur manuell aktualisiert
-    
+    update_interval: never
+
+# --- WAKE WORD ---
 micro_wake_word:
   microphone: cosmo_mic
-  stop_after_detection: true  # WICHTIG: Stoppt automatisch und gibt RAM frei!
+  stop_after_detection: true
   on_wake_word_detected:
-    - logger.log: "🎙️ WAKE WORD ERKANNT! Starte Voice Assistant..."
-    - binary_sensor.template.publish:
-        id: wake_word_detected
-        state: ON
-    - delay: 300ms
-    - binary_sensor.template.publish:
-        id: wake_word_detected
-        state: OFF
-    # Voice Assistant starten - streamt Audio an Python
+    - logger.log: "🎙️ WAKE WORD! Starte Voice Assistant..."
     - voice_assistant.start:
-        silence_detection: false  # Python macht VAD
   models:
     - model: okay_nabu
       probability_cutoff: 0.85
 
-# Voice Assistant - streamt Audio an Python via API
+# --- VOICE ASSISTANT (Home Assistant) ---
 voice_assistant:
   microphone: cosmo_mic
-  media_player: cosmo_media_player
-  use_wake_word: false  # Wake Word läuft separat über micro_wake_word
+  speaker: cosmo_speaker
+  use_wake_word: false
+  noise_suppression_level: 2
+  auto_gain: 31dBFS
+  volume_multiplier: 2.0
   on_listening:
-    - logger.log: "🎤 Voice Assistant: Höre zu..."
+    - logger.log: "🎤 Höre zu..."
   on_stt_end:
     - logger.log:
         format: "📝 Erkannt: %s"
         args: ['x.c_str()']
+    - text_sensor.template.publish:
+        id: user_text
+        state: !lambda 'return x;'
+  on_tts_start:
+    - logger.log:
+        format: "🔊 Antwort: %s"
+        args: ['x.c_str()']
+    - text_sensor.template.publish:
+        id: bot_text
+        state: !lambda 'return x;'
   on_end:
-    - logger.log: "✅ Voice Assistant fertig"
-    - micro_wake_word.start:  # Wake Word wieder starten
+    - logger.log: "✅ Fertig"
+    - delay: 500ms
+    - micro_wake_word.start:
   on_error:
     - logger.log:
-        format: "❌ Voice Assistant Fehler: %s - %s"
+        format: "❌ Fehler: %s - %s"
         args: ['code.c_str()', 'message.c_str()']
     - micro_wake_word.start:

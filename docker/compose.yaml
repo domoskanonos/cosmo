@@ -11,7 +11,9 @@ services:
     container_name: homeassistant
     restart: unless-stopped
     privileged: true
-    network_mode: host  # Für ESPHome Discovery
+    # network_mode: host  # Funktioniert nicht unter Windows/Podman
+    ports:
+      - "8123:8123"  # Home Assistant Web UI
     volumes:
       - ./homeassistant/config:/config
       - /etc/localtime:/etc/localtime:ro
@@ -70,3 +72,8 @@ services:
     #         - driver: nvidia
     #           count: all
     #           capabilities: [gpu]
+
+# Befehle zum Herunterfahren und Neustarten der Container
+# cd c:\_dev\repositories\cosmo\docker
+# podman compose down
+# podman compose up -d
