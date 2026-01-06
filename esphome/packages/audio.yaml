@@ -32,7 +32,7 @@ speaker:
     sample_rate: 16000
     channel: left
     audio_dac: es8311_codec
-    buffer_duration: 100ms
+
 
 # Media Player - handhabt I2S-Bus Switching korrekt
 media_player:

@@ -7,6 +7,7 @@ script:
             - not:
                 voice_assistant.is_running:
           then:
+            - delay: 500ms
             - logger.log: "🎙️ Starte Wake Word Detection"
             - micro_wake_word.start:
 
