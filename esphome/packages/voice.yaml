@@ -72,6 +72,7 @@ voice_assistant:
     - globals.set:
         id: is_speaking
         value: "false"
+    - script.execute: start_wake_word
   on_idle:
     - logger.log: "💤 Voice Assistant IDLE - alles fertig"
     - script.execute: start_wake_word
