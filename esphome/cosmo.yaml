@@ -231,16 +231,12 @@ voice_assistant:
     - text_sensor.template.publish:
         id: bot_text
         state: !lambda 'return x;'
+  on_tts_stream_start:
+    - logger.log: "🔈 TTS Audio Stream startet..."
   on_tts_stream_end:
     - logger.log: "🔈 TTS Audio Stream beendet"
-  on_end:
-    - logger.log: "✅ Voice Assistant fertig"
-    # Warte bis Speaker fertig ist
-    - wait_until:
-        not:
-          speaker.is_playing:
-    - delay: 100ms
-    - logger.log: "🎙️ Starte Wake Word neu"
+  on_idle:
+    - logger.log: "💤 Voice Assistant IDLE - alles fertig"
     - script.execute: start_wake_word
     # Text zurücksetzen
     - text_sensor.template.publish:
@@ -249,11 +245,12 @@ voice_assistant:
     - text_sensor.template.publish:
         id: bot_text
         state: ""
+  on_end:
+    - logger.log: "✅ Voice Assistant fertig"
   on_error:
     - logger.log:
         format: "❌ Fehler: %s - %s"
         args: ['code.c_str()', 'message.c_str()']
-    - delay: 1s
     - script.execute: start_wake_word
   on_client_connected:
     - logger.log: "✅ Home Assistant verbunden"
