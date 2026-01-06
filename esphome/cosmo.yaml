@@ -91,7 +91,6 @@ media_player:
   - platform: speaker
     name: "Cosmo Media Player"
     id: cosmo_media_player
-    speaker: cosmo_speaker
     announcement_pipeline:
       speaker: cosmo_speaker
       format: WAV
