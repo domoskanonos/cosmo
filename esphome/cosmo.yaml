@@ -168,7 +168,7 @@ voice_assistant:
   on_listening:
     - logger.log: "🎤 Höre zu..."
   on_stt_vad_end:
-    - logger.log: "🔇 VAD Ende - Stoppe Mikrofon für TTS"
+    - logger.log: "🔇 VAD Ende"
   on_stt_end:
     - logger.log:
         format: "📝 Erkannt: %s"
@@ -187,13 +187,20 @@ voice_assistant:
     - logger.log: "🔈 Audio Stream startet..."
   on_tts_stream_end:
     - logger.log: "🔈 Audio Stream beendet"
+    - speaker.stop:
+        id: cosmo_speaker
   on_end:
-    - logger.log: "✅ Fertig"
+    - logger.log: "✅ Fertig - stoppe Speaker"
+    - speaker.stop:
+        id: cosmo_speaker
     - delay: 500ms
+    - logger.log: "🎙️ Starte Wake Word Detection"
     - micro_wake_word.start:
   on_error:
     - logger.log:
         format: "❌ Fehler: %s - %s"
         args: ['code.c_str()', 'message.c_str()']
-    - delay: 1s
+    - speaker.stop:
+        id: cosmo_speaker
+    - delay: 500ms
     - micro_wake_word.start:
