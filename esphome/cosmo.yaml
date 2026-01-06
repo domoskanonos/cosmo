@@ -206,7 +206,7 @@ micro_wake_word:
 voice_assistant:
   id: va
   microphone: cosmo_mic
-  media_player: cosmo_media_player
+  speaker: cosmo_speaker
   micro_wake_word: mww
   noise_suppression_level: 2
   auto_gain: 31dBFS
@@ -222,6 +222,8 @@ voice_assistant:
     - text_sensor.template.publish:
         id: user_text
         state: !lambda 'return x;'
+  on_tts_stream_start:
+    - logger.log: "🔈 TTS Audio Stream startet..."
   on_tts_start:
     - logger.log:
         format: "🔊 Antwort: %s"
@@ -229,20 +231,15 @@ voice_assistant:
     - text_sensor.template.publish:
         id: bot_text
         state: !lambda 'return x;'
+  on_tts_stream_end:
+    - logger.log: "🔈 TTS Audio Stream beendet"
   on_end:
     - logger.log: "✅ Voice Assistant fertig"
-    # Warte bis Media Player fertig ist
+    # Warte bis Speaker fertig ist
     - wait_until:
-        condition:
-          - media_player.is_announcing:
-        timeout: 500ms
-    # Warte bis I2S-Bus frei ist
-    - wait_until:
-        - and:
-            - not:
-                media_player.is_announcing:
-            - not:
-                speaker.is_playing:
+        not:
+          speaker.is_playing:
+    - delay: 100ms
     - logger.log: "🎙️ Starte Wake Word neu"
     - script.execute: start_wake_word
     # Text zurücksetzen
