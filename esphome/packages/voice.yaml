@@ -63,10 +63,7 @@ voice_assistant:
     - text_sensor.template.publish:
         id: bot_text
         state: !lambda 'return x;'
-    # Redundant trigger: Start animation when TTS prepared
-    - globals.set:
-        id: is_speaking
-        value: "true"
+
   on_tts_stream_start:
     - logger.log: "🔈 TTS Audio Stream startet..."
     - globals.set:
@@ -79,9 +76,6 @@ voice_assistant:
         value: "false"
   on_idle:
     - logger.log: "💤 Voice Assistant IDLE - alles fertig"
-    - globals.set:
-        id: is_speaking
-        value: "false"
     - script.execute: start_wake_word
     # Text zurücksetzen
     - text_sensor.template.publish:
@@ -92,9 +86,6 @@ voice_assistant:
         state: ""
   on_end:
     - logger.log: "✅ Voice Assistant fertig"
-    - globals.set:
-        id: is_speaking
-        value: "false"
     - globals.set:
         id: is_listening
         value: "false"

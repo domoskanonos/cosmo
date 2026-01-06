@@ -71,19 +71,11 @@ services:
       - "11434:11434"
     volumes:
       - ./ollama/data:/root/.ollama
+    devices:
+      - nvidia.com/gpu=all  # CDI-basierter GPU-Zugriff für Podman
     environment:
       - TZ=Europe/Berlin
       - OLLAMA_HOST=0.0.0.0
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-      # Optional: OLLAMA_GPU_LAYER=999  # erzwinge GPU-Layer-Zahl, falls automatisch CPU gewählt wird
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     networks:
       - voice-net
 
