@@ -1,0 +1,63 @@
+audio_dac:
+  - platform: es8311
+    id: es8311_codec
+    bits_per_sample: 16bit
+    sample_rate: 16000
+    mic_gain: 42dB
+
+i2s_audio:
+  - id: i2s_bus
+    i2s_lrclk_pin: GPIO45
+    i2s_bclk_pin: GPIO9
+    i2s_mclk_pin: GPIO16
+
+microphone:
+  - platform: i2s_audio
+    id: cosmo_mic
+    i2s_audio_id: i2s_bus
+    adc_type: external
+    pdm: false
+    i2s_din_pin: GPIO10
+    channel: left
+    bits_per_sample: 16bit
+    sample_rate: 16000
+
+speaker:
+  - platform: i2s_audio
+    id: cosmo_speaker
+    i2s_audio_id: i2s_bus
+    dac_type: external
+    i2s_dout_pin: GPIO8
+    bits_per_sample: 16bit
+    sample_rate: 16000
+    channel: left
+    audio_dac: es8311_codec
+    buffer_duration: 100ms
+
+# Media Player - handhabt I2S-Bus Switching korrekt
+media_player:
+  - platform: speaker
+    name: "Cosmo Media Player"
+    id: cosmo_media_player
+    announcement_pipeline:
+      speaker: cosmo_speaker
+      format: WAV
+      sample_rate: 16000
+      num_channels: 1
+    on_announcement:
+      - logger.log: "📢 Announcement startet"
+      # Stoppe Wake Word wenn Mikrofon aktiv ist
+      - if:
+          condition:
+            - microphone.is_capturing:
+          then:
+            - script.execute: stop_wake_word
+    on_idle:
+      - logger.log: "📢 Media Player idle"
+      # Starte Wake Word nur wenn VA nicht läuft
+      - if:
+          condition:
+            not:
+              voice_assistant.is_running:
+          then:
+            - script.execute: start_wake_word

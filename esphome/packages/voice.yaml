@@ -1,0 +1,99 @@
+# --- SCRIPTS ---
+script:
+  - id: start_wake_word
+    then:
+      - if:
+          condition:
+            - not:
+                voice_assistant.is_running:
+          then:
+            - logger.log: "🎙️ Starte Wake Word Detection"
+            - micro_wake_word.start:
+
+  - id: stop_wake_word
+    then:
+      - logger.log: "🔇 Stoppe Wake Word"
+      - micro_wake_word.stop:
+
+# --- WAKE WORD ---
+micro_wake_word:
+  id: mww
+  microphone: cosmo_mic
+  models:
+    - model: okay_nabu
+      probability_cutoff: 0.85
+  on_wake_word_detected:
+    - logger.log: "🎙️ WAKE WORD erkannt!"
+    - voice_assistant.start:
+        wake_word: !lambda return wake_word;
+
+# --- VOICE ASSISTANT (Home Assistant) ---
+voice_assistant:
+  id: va
+  microphone: cosmo_mic
+  speaker: cosmo_speaker
+  micro_wake_word: mww
+  noise_suppression_level: 2
+  auto_gain: 31dBFS
+  volume_multiplier: 2.0
+  on_listening:
+    - logger.log: "🎤 Höre zu..."
+  on_stt_vad_end:
+    - logger.log: "🔇 VAD Ende - Verarbeitung..."
+  on_stt_end:
+    - logger.log:
+        format: "📝 Erkannt: %s"
+        args: ['x.c_str()']
+    - text_sensor.template.publish:
+        id: user_text
+        state: !lambda 'return x;'
+  on_tts_start:
+    - logger.log:
+        format: "🔊 Antwort: %s"
+        args: ['x.c_str()']
+    - text_sensor.template.publish:
+        id: bot_text
+        state: !lambda 'return x;'
+  on_tts_stream_start:
+    - logger.log: "🔈 TTS Audio Stream startet..."
+    - globals.set:
+        id: is_speaking
+        value: "true"
+  on_tts_stream_end:
+    - logger.log: "🔈 TTS Audio Stream beendet"
+    - globals.set:
+        id: is_speaking
+        value: "false"
+  on_idle:
+    - logger.log: "💤 Voice Assistant IDLE - alles fertig"
+    - globals.set:
+        id: is_speaking
+        value: "false"
+    - script.execute: start_wake_word
+    # Text zurücksetzen
+    - text_sensor.template.publish:
+        id: user_text
+        state: ""
+    - text_sensor.template.publish:
+        id: bot_text
+        state: ""
+  on_end:
+    - logger.log: "✅ Voice Assistant fertig"
+    - globals.set:
+        id: is_speaking
+        value: "false"
+  on_error:
+    - logger.log:
+        format: "❌ Fehler: %s - %s"
+        args: ['code.c_str()', 'message.c_str()']
+    - globals.set:
+        id: is_speaking
+        value: "false"
+    - script.execute: start_wake_word
+  on_client_connected:
+    - logger.log: "✅ Home Assistant verbunden"
+    # Starting wake word here ensures we are ready
+    - script.execute: start_wake_word
+  on_client_disconnected:
+    - logger.log: "❌ Home Assistant getrennt"
+    - script.execute: stop_wake_word

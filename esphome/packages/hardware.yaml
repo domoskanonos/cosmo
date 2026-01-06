@@ -1,0 +1,37 @@
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  framework:
+    type: esp-idf
+
+network:
+  enable_high_performance: false
+
+# --- AUDIO HARDWARE I2C ---
+i2c:
+  sda: GPIO15
+  scl: GPIO14
+  scan: true
+
+# --- OUTPUTS ---
+output:
+  - platform: gpio
+    pin:
+      number: GPIO42
+      inverted: true
+    id: backlight
+
+switch:
+  - platform: gpio
+    name: "Speaker Enable"
+    id: pa_enable
+    pin: GPIO46
+    restore_mode: ALWAYS_ON
+
+# We ensure backlight is on at boot here, specific to hardware
+esphome:
+  on_boot:
+    priority: -100
+    then:
+      - output.turn_on: backlight
+      - logger.log: "🚀 Boot: Backlight ON"

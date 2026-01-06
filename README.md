@@ -129,13 +129,27 @@ podman exec -it ollama ollama pull llama3.2:3b
 2. Host: `192.168.178.82` (IP deines ESP32)
 3. Das Gerät wird automatisch erkannt
 
+### Updates einspielen
+
+Wenn Sie Änderungen an der Konfiguration vorgenommen haben (oder `git pull` ausgeführt haben), flashen Sie das Gerät erneut mit dem gleichen Befehl:
+
+```bash
+uv run esphome run esphome/cosmo.yaml
+```
+
 ## Ordnerstruktur
 
 ```
 cosmo/
 ├── esphome/
-│   ├── cosmo.yaml        # ESP32 Konfiguration
-│   └── secrets.yaml      # WLAN Credentials
+│   ├── cosmo.yaml        # Haupt-Konfiguration (Entry Point)
+│   ├── secrets.yaml      # WLAN Credentials
+│   └── packages/         # Modularisierte Konfiguration
+│       ├── network.yaml
+│       ├── hardware.yaml
+│       ├── audio.yaml
+│       ├── voice.yaml
+│       └── display.yaml
 ├── docker/
 │   ├── compose.yaml      # Docker/Podman Stack
 │   ├── homeassistant/    # HA Config (wird erstellt)

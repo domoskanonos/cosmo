@@ -1,0 +1,82 @@
+substitutions:
+  # Standard colors
+  color_bg: "0x000000"
+  color_accent: "0xFFFF00"
+  color_text: "0xFFFFFF"
+  color_subtext: "0x888888"
+
+globals:
+  - id: is_speaking
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+spi:
+  id: spi_bus
+  clk_pin: GPIO4
+  mosi_pin: GPIO2
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_normal
+    size: 20
+  - file: "gfonts://Roboto"
+    id: font_small
+    size: 14
+
+text_sensor:
+  - platform: template
+    name: "User Text"
+    id: user_text
+    update_interval: never
+  - platform: template
+    name: "Bot Response"
+    id: bot_text
+    update_interval: never
+
+display:
+  - platform: ili9xxx
+    model: GC9A01A
+    id: cosmo_display
+    spi_id: spi_bus
+    dimensions:
+      height: 240
+      width: 240
+    cs_pin: GPIO5
+    dc_pin: GPIO47
+    reset_pin: GPIO38
+    invert_colors: false
+    update_interval: 0.1s # Faster update for animation
+    lambda: |-
+      it.fill(Color(0x000000));
+      
+      // Eyes
+      it.filled_circle(80, 80, 20, Color(0xFFFF00));
+      it.filled_circle(160, 80, 20, Color(0xFFFF00));
+      
+      // Mouth Area (Center ~ 120, 140)
+      int center_x = 120;
+      int center_y = 140;
+      int width = 80;
+      int max_height = 40;
+      
+      if (id(is_speaking)) {
+         // Speaking: Vertical bars (Voice visualization)
+         int bars = 7;
+         int spacing = 12;
+         int start_x = center_x - ((bars * spacing) / 2);
+         
+         for (int i = 0; i < bars; i++) {
+            // Random height between 5 and max_height
+            int h = (rand() % (max_height - 5 + 1)) + 5;
+            int x = start_x + (i * spacing);
+            it.filled_rectangle(x, center_y - (h / 2), 6, h, Color(0xFFFF00));
+         }
+      } else {
+         // Not speaking: Horizontal bar (Closed mouth)
+         it.filled_rectangle(center_x - (width / 2), center_y - 3, width, 6, Color(0xFFFF00));
+      }
+
+      // Text
+      it.printf(120, 180, id(font_small), Color(0x888888), TextAlign::CENTER, "%s", id(user_text).state.c_str());
+      it.printf(120, 210, id(font_normal), Color(0xFFFFFF), TextAlign::CENTER, "%s", id(bot_text).state.c_str());
