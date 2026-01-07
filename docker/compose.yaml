@@ -76,6 +76,9 @@ services:
     environment:
       - TZ=Europe/Berlin
       - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_NUM_GPU=999              # Alle Layer auf GPU laden (wenn möglich)
+      - OLLAMA_GPU_MEMORY_FRACTION=0.9  # 90% des GPU-Speichers nutzen
+      - OLLAMA_CONTEXT_LENGTH=4096      # Reduzierte Context-Länge spart VRAM
     networks:
       - voice-net
 
