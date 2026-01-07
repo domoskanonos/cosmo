@@ -3,7 +3,7 @@ audio_dac:
     id: es8311_codec
     bits_per_sample: 16bit
     sample_rate: 16000
-    mic_gain: 42dB
+    mic_gain: 36dB
 
 i2s_audio:
   - id: i2s_bus
@@ -32,7 +32,7 @@ speaker:
     sample_rate: 16000
     channel: left
     audio_dac: es8311_codec
-    buffer_duration: 100ms
+    buffer_duration: 5s
 
 
 # Media Player - handhabt I2S-Bus Switching korrekt
