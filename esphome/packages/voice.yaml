@@ -34,11 +34,15 @@ voice_assistant:
   noise_suppression_level: 2
   auto_gain: 31dBFS
   volume_multiplier: 2.0
+  on_start:
+    - logger.log: "🚀 Voice Pipeline gestartet"
   on_listening:
     - logger.log: "🎤 Höre zu..."
     - globals.set:
         id: is_listening
         value: "true"
+  on_stt_vad_start:
+    - logger.log: "🗣️ VAD erkannt - Sprachentdeckung gestartet"
   on_stt_vad_end:
     - logger.log: "🔇 VAD Ende - Verarbeitung..."
     - globals.set:
@@ -54,6 +58,12 @@ voice_assistant:
     - globals.set:
         id: is_listening
         value: "false"
+  on_intent_start:
+    - logger.log: "🤔 Intent Verarbeitung gestartet"
+  on_intent_progress:
+    - logger.log: "⏳ Intent wird verarbeitet..."
+  on_intent_end:
+    - logger.log: "💡 Intent Verarbeitung beendet"
   on_tts_start:
     - logger.log:
         format: "🔊 Antwort: %s"
@@ -62,6 +72,10 @@ voice_assistant:
         id: bot_text
         state: !lambda 'return x;'
 
+  on_tts_end:
+    - logger.log:
+        format: "🏁 TTS Generierung fertig (URL: %s)"
+        args: ['x.c_str()']
   on_tts_stream_start:
     - logger.log: "🔈 TTS Audio Stream startet..."
     - globals.set:
@@ -72,7 +86,9 @@ voice_assistant:
     - globals.set:
         id: is_speaking
         value: "false"
-    - script.execute: start_wake_word
+    - delay: 200ms
+    - logger.log: "👂 Continuous Mode - Listening for follow-up..."
+    - voice_assistant.start:
   on_idle:
     - logger.log: "💤 Voice Assistant IDLE - alles fertig"
     - script.execute: start_wake_word
