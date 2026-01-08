@@ -59,9 +59,9 @@ services:
 
   # ============== LOCALAI (LLM) ==============
   localai:
-    # CPU-Version da Podman unter Windows kein GPU-Passthrough hat
+    # AIO (All-in-One) CPU Version mit allen Backends
     # Für GPU-Unterstützung: Docker Desktop mit NVIDIA Container Toolkit verwenden
-    image: localai/localai:master
+    image: localai/localai:latest-aio-cpu
     container_name: localai
     restart: unless-stopped
     ports:
