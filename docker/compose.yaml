@@ -35,10 +35,7 @@ services:
     volumes:
       - ./whisper/data:/data
     command: >
-      --model base
-      --language de
-      --data-dir /data
-      --download-dir /data
+      --model base --language de --data-dir /data --download-dir /data
     environment:
       - TZ=Europe/Berlin
     networks:
@@ -54,9 +51,7 @@ services:
     volumes:
       - ./piper/data:/data
     command: >
-      --voice de_DE-thorsten-high
-      --data-dir /data
-      --download-dir /data
+      --voice de_DE-thorsten-high --data-dir /data --download-dir /data
     environment:
       - TZ=Europe/Berlin
     networks:
@@ -71,8 +66,14 @@ services:
       - "8081:8080"
     volumes:
       - ./localai/models:/build/models:cached
-    devices:
-      - nvidia.com/gpu=all
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
     environment:
       - TZ=Europe/Berlin
       - MODELS_PATH=/build/models
@@ -89,7 +90,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /run/podman/podman.sock:/var/run/docker.sock:ro  # Podman-Socket auf Docker-Pfad mappen
+      - /run/podman/podman.sock:/var/run/docker.sock:ro # Podman-Socket auf Docker-Pfad mappen
     environment:
       - TZ=Europe/Berlin
     networks:
