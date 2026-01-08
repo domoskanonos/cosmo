@@ -7,7 +7,7 @@
 services:
   # ============== HOME ASSISTANT ==============
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:stable
+    build: ./homeassistant
     container_name: homeassistant
     restart: unless-stopped
     privileged: true
