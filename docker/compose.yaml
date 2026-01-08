@@ -21,7 +21,7 @@ services:
     depends_on:
       - whisper
       - piper
-      - ollama
+      - localai
     networks:
       - voice-net
 
@@ -62,23 +62,22 @@ services:
     networks:
       - voice-net
 
-  # ============== OLLAMA (Local LLM) ==============
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
+  # ============== LOCALAI (LLM) ==============
+  localai:
+    image: localai/localai:latest-gpu-nvidia-cuda-12
+    container_name: localai
     restart: unless-stopped
     ports:
-      - "11434:11434"
+      - "8081:8080"
     volumes:
-      - ./ollama/data:/root/.ollama
+      - ./localai/models:/build/models:cached
     devices:
-      - nvidia.com/gpu=all  # CDI-basierter GPU-Zugriff für Podman
+      - nvidia.com/gpu=all
     environment:
       - TZ=Europe/Berlin
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_NUM_GPU=999              # Alle Layer auf GPU laden (wenn möglich)
-      - OLLAMA_GPU_MEMORY_FRACTION=0.9  # 90% des GPU-Speichers nutzen
-      - OLLAMA_CONTEXT_LENGTH=4096      # Reduzierte Context-Länge spart VRAM
+      - MODELS_PATH=/build/models
+      - CONTEXT_SIZE=4096
+      - GPU_TARGETS=all
     networks:
       - voice-net
 
