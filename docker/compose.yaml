@@ -7,7 +7,7 @@
 services:
   # ============== HOME ASSISTANT ==============
   homeassistant:
-    build: ./homeassistant
+    image: ghcr.io/home-assistant/home-assistant:stable
     container_name: homeassistant
     restart: unless-stopped
     privileged: true
@@ -21,7 +21,7 @@ services:
     depends_on:
       - whisper
       - piper
-      - localai
+      - ollama
     networks:
       - voice-net
 
@@ -35,7 +35,10 @@ services:
     volumes:
       - ./whisper/data:/data
     command: >
-      --model base --language de --data-dir /data --download-dir /data
+      --model base
+      --language de
+      --data-dir /data
+      --download-dir /data
     environment:
       - TZ=Europe/Berlin
     networks:
@@ -51,28 +54,31 @@ services:
     volumes:
       - ./piper/data:/data
     command: >
-      --voice de_DE-thorsten-high --data-dir /data --download-dir /data
+      --voice de_DE-thorsten-high
+      --data-dir /data
+      --download-dir /data
     environment:
       - TZ=Europe/Berlin
     networks:
       - voice-net
 
-  # ============== LOCALAI (LLM) ==============
-  localai:
-    # AIO (All-in-One) CPU Version mit allen Backends
-    # Für GPU-Unterstützung: Docker Desktop mit NVIDIA Container Toolkit verwenden
-    image: localai/localai:latest-aio-cpu
-    container_name: localai
+  # ============== OLLAMA (Local LLM) ==============
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
     restart: unless-stopped
     ports:
-      - "8081:8080"
+      - "11434:11434"
     volumes:
-      - ./localai/models:/build/models:cached
+      - ./ollama/data:/root/.ollama
+    devices:
+      - nvidia.com/gpu=all  # CDI-basierter GPU-Zugriff für Podman
     environment:
       - TZ=Europe/Berlin
-      - MODELS_PATH=/build/models
-      - CONTEXT_SIZE=2048
-      - THREADS=8
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_NUM_GPU=999              # Alle Layer auf GPU laden (wenn möglich)
+      - OLLAMA_GPU_MEMORY_FRACTION=0.9  # 90% des GPU-Speichers nutzen
+      - OLLAMA_CONTEXT_LENGTH=4096      # Reduzierte Context-Länge spart VRAM
     networks:
       - voice-net
 
@@ -84,7 +90,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /run/podman/podman.sock:/var/run/docker.sock:ro # Podman-Socket auf Docker-Pfad mappen
+      - /run/podman/podman.sock:/var/run/docker.sock:ro  # Podman-Socket auf Docker-Pfad mappen
     environment:
       - TZ=Europe/Berlin
     networks:
