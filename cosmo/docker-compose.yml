@@ -9,14 +9,20 @@ services:
     restart: unless-stopped
     devices:
       # Audio device mapping - Required for access to the microphone
-      # This works on Linux/ALSA. For Windows/WSL2, ensure audio pass-through is configured.
       - "/dev/snd:/dev/snd"
     environment:
       - PYTHONUNBUFFERED=1
       - DIST_FOLDER=/app/dist
-      # - SELECTED_MIC=0  # Uncomment and set if you want to force a specific mic ID
     volumes:
-      # Persist detection logs
-      - ./dist/wakeword:/app/dist
-    #  # Optional: Mount models if you want to swap them easily
-    #  - ./models:/app/models
+      # Persist detection logs using named volume
+      - cosmo_data:/app/dist
+    networks:
+      - cosmo_network
+
+volumes:
+  cosmo_data:
+
+
+networks:
+  cosmo_network:
+    driver: bridge

@@ -49,22 +49,26 @@ class WakeWordListener:
         self.running = False
         self.thread = None
         
+        self.last_log_time = time.time()
+        self.max_score_since_log = 0.0
+        self.max_vol_since_log = 0.0
+        
         # Initialize resources
         logger.info(f"Loading openwakeword model: {model_path}")
         openwakeword.utils.download_models()
         self.oww_model = Model(wakeword_models=[model_path], inference_framework="onnx")
         logger.debug("Model loaded successfully")
 
-    def _audio_callback(self, indata, frames, time, status):
+    def _audio_callback(self, indata, frames, time_info, status):
         if status:
             logger.warning(f"Audio status: {status}")
             
         # Convert audio to numpy array (flat int16)
         audio_data = indata.flatten()
         
-        # Calculate volume for debug visualization
-        if self.debug:
-            volume_norm = float(np.linalg.norm(audio_data) / 500)
+        # Calculate volume
+        volume_norm = float(np.linalg.norm(audio_data) / 500)
+        self.max_vol_since_log = max(self.max_vol_since_log, volume_norm)
         
         # Get predictions
         prediction = self.oww_model.predict(audio_data)
@@ -73,7 +77,16 @@ class WakeWordListener:
         for mdl in self.oww_model.prediction_buffer.keys():
             scores = list(self.oww_model.prediction_buffer[mdl])
             curr_score = scores[-1]
+            self.max_score_since_log = max(self.max_score_since_log, curr_score)
             
+            # Periodic logging (every 1 second)
+            current_time = time.time()
+            if current_time - self.last_log_time > 1.0:
+                logger.info(f"Stats - Level: {self.max_vol_since_log:.1f} | Max Quote: {self.max_score_since_log:.3f}")
+                self.last_log_time = current_time
+                self.max_score_since_log = 0.0
+                self.max_vol_since_log = 0.0
+
             # Debug output
             if self.debug and curr_score > 0.01:
                 logger.debug(f"Score for {mdl}: {curr_score:.3f} (Vol: {volume_norm:.1f})")
