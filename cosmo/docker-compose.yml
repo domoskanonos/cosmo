@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  wakeword:
+    build:
+      context: ./wakeword
+      dockerfile: Dockerfile
+    image: cosmo-wakeword
+    restart: unless-stopped
+    devices:
+      # Audio device mapping - Required for access to the microphone
+      # This works on Linux/ALSA. For Windows/WSL2, ensure audio pass-through is configured.
+      - "/dev/snd:/dev/snd"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DIST_FOLDER=/app/dist
+      # - SELECTED_MIC=0  # Uncomment and set if you want to force a specific mic ID
+    volumes:
+      # Persist detection logs
+      - ./dist/wakeword:/app/dist
+    #  # Optional: Mount models if you want to swap them easily
+    #  - ./models:/app/models
