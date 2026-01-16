@@ -1,9 +1,9 @@
 [project]
-name = "cosmo"
+name = "cosmo-wakeword"
 version = "0.1.0"
-description = "Offline AI Assistant based on Xiaozhi (ESP32-S3-BOX-3) hardware"
+description = "Wakeword detection service for Cosmo"
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10"
 dependencies = [
     "openwakeword",
     "numpy",
@@ -16,4 +16,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["cosmo"]
+packages = ["."]

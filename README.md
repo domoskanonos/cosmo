@@ -47,6 +47,18 @@ uv run esphome run esphome/cosmo.yaml
 uv run esphome run esphome/cosmo.yaml --device 192.168.178.82
 ```
 
+### 4. Lokales OpenWakeWord Beispiel (Optional)
+
+Zum Testen der Wake Word Erkennung direkt auf dem PC (benötigt ein Mikrofon):
+
+```bash
+# Beispiel starten (lädt automatisch das 'alexa' Modell)
+uv run cosmo/main.py
+
+# Anderes Modell testen
+uv run cosmo/main.py --model hey_jarvis
+```
+
 ## Home Assistant Stack starten
 
 ### Mit Docker:
